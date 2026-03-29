@@ -93,13 +93,38 @@ async def build_creative_plan(ad_text: str, image_path: str = None) -> CreativeP
 
     raw = response.choices[0].message.content.strip()
 
-    # Убираем markdown если GPT всё-таки добавил
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
+    # Убираем markdown если GPT добавил
+    if "```" in raw:
+        parts = raw.split("```")
+        for part in parts:
+            if part.startswith("json"):
+                raw = part[4:].strip()
+                break
+            elif part.strip().startswith("{"):
+                raw = part.strip()
+                break
 
-    data = json.loads(raw)
+    # Ищем JSON даже если GPT добавил текст вокруг
+    if not raw.startswith("{"):
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        if start != -1 and end > start:
+            raw = raw[start:end]
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # Fallback — GPT не вернул JSON, делаем план из текста напрямую
+        data = {
+            "headline": ad_text[:50],
+            "subheadline": "",
+            "bullets": [],
+            "price": "",
+            "badge": "Акция",
+            "cta": "Напишите нам",
+            "visual_additions": [],
+            "style": "minimal"
+        }
 
     return CreativePlan(
         headline=data.get("headline", ""),
