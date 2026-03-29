@@ -106,11 +106,14 @@ async def _generate_and_send(message: Message, state: FSMContext,
         # Отправляем баннеры
         labels = ["✨ Premium", "🎯 Conversion", "🤍 Minimal"]
         sent = 0
+        from aiogram.types import BufferedInputFile
         for path, label in zip(paths, labels):
             logger.info(f"Checking path: {path}, exists: {os.path.exists(path)}")
             if os.path.exists(path):
                 with open(path, "rb") as f:
-                    await message.answer_photo(f, caption=label)
+                    photo_data = f.read()
+                file = BufferedInputFile(photo_data, filename=f"banner_{label}.png")
+                await message.answer_photo(file, caption=label)
                 sent += 1
 
         if sent == 0:
