@@ -94,7 +94,7 @@ async def _generate_and_send(message: Message, state: FSMContext,
         os.makedirs(output_dir, exist_ok=True)
 
         logger.info(f"Generating variants in {output_dir}")
-        paths = await generate_variants(plan, image_path, output_dir)
+        paths = await generate_variants(plan, image_path, output_dir, ad_text=ad_text)
         logger.info(f"Generated paths: {paths}")
 
         # Удаляем статус
@@ -153,6 +153,22 @@ async def change_text(callback: CallbackQuery, state: FSMContext):
 async def change_photo(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.answer("🖼 Отправь новое фото:")
+    await state.set_state(CreativeFlow.waiting_for_photo_or_prompt)
+
+
+@dp.message()
+async def fallback_handler(message: Message, state: FSMContext):
+    """Ловит все сообщения вне FSM состояния — просто перезапускает флоу."""
+    await state.clear()
+    await message.answer(
+        "👋 Привет! Я создаю рекламные креативы.\n\n"
+        "Отправь мне:\n"
+        "📸 <b>Фото</b> товара или услуги\n"
+        "или\n"
+        "💬 <b>Текст</b> с описанием\n\n"
+        "Начнём!",
+        parse_mode="HTML"
+    )
     await state.set_state(CreativeFlow.waiting_for_photo_or_prompt)
 
 
