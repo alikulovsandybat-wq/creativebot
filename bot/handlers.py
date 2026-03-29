@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -9,6 +10,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from services.creative_planner import build_creative_plan
 from services.variant_generator import generate_variants
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 
@@ -37,7 +41,7 @@ async def cmd_start(message: Message, state: FSMContext):
         "Отправь мне:\n"
         "📸 <b>Фото</b> товара или услуги\n"
         "или\n"
-        "💬 <b>Текст</b> с описанием (я сам найду картинку)\n\n"
+        "💬 <b>Текст</b> с описанием\n\n"
         "Начнём!",
         parse_mode="HTML"
     )
@@ -46,12 +50,12 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @dp.message(CreativeFlow.waiting_for_photo_or_prompt, F.photo)
 async def handle_photo(message: Message, state: FSMContext):
-    # Скачиваем фото
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
-    os.makedirs("temp", exist_ok=True)
-    image_path = f"temp/{message.from_user.id}_source.jpg"
+    os.makedirs("/tmp/creative_temp", exist_ok=True)
+    image_path = f"/tmp/creative_temp/{message.from_user.id}_source.jpg"
     await bot.download_file(file.file_path, image_path)
+    logger.info(f"Photo saved: {image_path}")
 
     await state.update_data(image_path=image_path)
     await message.answer("✅ Фото получил!\n\nТеперь напиши рекламный текст — что продаём, цена, акции, выгоды:")
@@ -70,9 +74,7 @@ async def handle_ad_text(message: Message, state: FSMContext):
     data = await state.get_data()
     image_path = data.get("image_path")
     existing_text = data.get("ad_text", "")
-
     ad_text = existing_text + "\n" + message.text if existing_text else message.text
-
     await state.update_data(ad_text=ad_text)
     await _generate_and_send(message, state, image_path, ad_text)
 
@@ -82,22 +84,38 @@ async def _generate_and_send(message: Message, state: FSMContext,
     status = await message.answer("⚡ Генерирую 3 варианта креатива...")
 
     try:
-        # Планируем креатив
+        logger.info(f"Building plan for: {ad_text[:50]}")
         plan = await build_creative_plan(ad_text, image_path)
+        logger.info(f"Plan built: {plan.headline}")
         await state.update_data(plan=plan.__dict__)
 
-        # Генерируем 3 варианта
-        output_dir = f"outputs/{message.from_user.id}"
+        # Папка во временной директории — Railway разрешает писать в /tmp
+        output_dir = f"/tmp/creative_outputs/{message.from_user.id}"
+        os.makedirs(output_dir, exist_ok=True)
+
+        logger.info(f"Generating variants in {output_dir}")
         paths = await generate_variants(plan, image_path, output_dir)
+        logger.info(f"Generated paths: {paths}")
 
-        await status.delete()
+        # Удаляем статус
+        try:
+            await status.delete()
+        except Exception:
+            pass
 
-        # Отправляем все 3 баннера
+        # Отправляем баннеры
         labels = ["✨ Premium", "🎯 Conversion", "🤍 Minimal"]
+        sent = 0
         for path, label in zip(paths, labels):
+            logger.info(f"Checking path: {path}, exists: {os.path.exists(path)}")
             if os.path.exists(path):
                 with open(path, "rb") as f:
                     await message.answer_photo(f, caption=label)
+                sent += 1
+
+        if sent == 0:
+            await message.answer("⚠️ Баннеры сгенерированы но не найдены. Попробуй ещё раз.")
+            return
 
         await message.answer(
             "Вот твои 3 варианта! Выбери понравившийся или:",
@@ -105,7 +123,11 @@ async def _generate_and_send(message: Message, state: FSMContext,
         )
 
     except Exception as e:
-        await status.edit_text(f"❌ Ошибка: {e}")
+        logger.error(f"Error in _generate_and_send: {e}", exc_info=True)
+        try:
+            await status.edit_text(f"❌ Ошибка: {e}")
+        except Exception:
+            await message.answer(f"❌ Ошибка: {e}")
 
 
 @dp.callback_query(F.data == "regenerate")
