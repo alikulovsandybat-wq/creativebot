@@ -3,7 +3,23 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from models.creative import CreativePlan
 
-FONTS_DIR = os.path.join(os.path.dirname(__file__), "..", "fonts")
+def _find_fonts_dir():
+    """Ищет папку со шрифтами — поддерживает разные структуры репозитория."""
+    base = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(base, "..", "fonts"),           # /fonts/
+        os.path.join(base, "..", "fonts_all", "fonts"),  # /fonts_all/fonts/
+        os.path.join(base, "..", "fonts_all"),        # /fonts_all/
+    ]
+    for path in candidates:
+        if os.path.isdir(path):
+            # Проверяем что там есть подпапки со шрифтами
+            if any(os.path.isdir(os.path.join(path, sub))
+                   for sub in ["universal", "bold", "delicate"]):
+                return os.path.abspath(path)
+    return os.path.join(base, "..", "fonts")  # fallback
+
+FONTS_DIR = _find_fonts_dir()
 
 BRAND_FONT_DIRS = {
     "delicate": "delicate",
