@@ -1,2 +1,8 @@
 [phases.setup]
-nixPkgs = ["python311", "fontconfig", "dejavu_fonts", "noto-fonts"]
+nixPkgs = ["python311", "fontconfig", "dejavu_fonts", "noto-fonts", "liberation_ttf"]
+
+[phases.build]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python main.py"
