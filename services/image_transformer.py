@@ -17,13 +17,13 @@ BACKGROUND_PROMPTS = {
         "NO objects, NO people, NO text, just empty background"
     ),
     "conversion": (
-        "Empty bright outdoor scene, natural sunlight, vibrant realistic colors, "
-        "clean modern environment, professional advertising background, "
+        "Empty bright outdoor or modern interior scene, natural sunlight, "
+        "vibrant realistic colors, clean modern environment, "
         "hyperrealistic photography, NO objects, NO people, NO text, just empty background"
     ),
     "minimal": (
         "Empty clean bright studio, soft natural window light, "
-        "light cream or white wall, clean wooden surface, "
+        "light cream or white wall, clean wooden surface or table, "
         "airy minimalist Scandinavian atmosphere, "
         "hyperrealistic photography background, NO objects, NO people, "
         "NO text, just empty background"
@@ -52,7 +52,8 @@ def _get_decoration_hint(ad_text: str) -> str:
     return ""
 
 
-async def _generate_background(style: str, subject_desc: str, decoration_hint: str) -> str:
+async def _generate_background(style: str, subject_desc: str,
+                                decoration_hint: str) -> str:
     bg_prompt = BACKGROUND_PROMPTS.get(style, BACKGROUND_PROMPTS["minimal"])
     if decoration_hint:
         bg_prompt = bg_prompt.replace("just empty background",
@@ -78,6 +79,7 @@ async def _download_image(url: str, save_path: str):
 
 
 def _remove_background(source_path: str) -> Image.Image:
+    """Вырезает объект. Вызывается ОДИН РАЗ на всю генерацию."""
     try:
         from rembg import remove
         with open(source_path, "rb") as f:
@@ -89,7 +91,8 @@ def _remove_background(source_path: str) -> Image.Image:
         return Image.open(source_path).convert("RGBA")
 
 
-def _composite(bg: Image.Image, obj: Image.Image, canvas_size: tuple) -> Image.Image:
+def _composite(bg: Image.Image, obj: Image.Image,
+               canvas_size: tuple) -> Image.Image:
     W, H = canvas_size
     bg = bg.resize((W, H), Image.LANCZOS)
 
@@ -101,12 +104,13 @@ def _composite(bg: Image.Image, obj: Image.Image, canvas_size: tuple) -> Image.I
     else:
         new_h, new_w = max_obj_h, int(max_obj_h * ratio)
 
-    obj = obj.resize((new_w, new_h), Image.LANCZOS)
+    obj_resized = obj.resize((new_w, new_h), Image.LANCZOS)
 
     # Тень под объект
-    shadow = Image.new("RGBA", (new_w, max(int(new_h * 0.06), 20)), (0, 0, 0, 0))
+    sh_h = max(int(new_h * 0.06), 20)
+    shadow = Image.new("RGBA", (new_w, sh_h), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).ellipse(
-        [new_w//6, 0, new_w*5//6, shadow.height], fill=(0, 0, 0, 50)
+        [new_w//6, 0, new_w*5//6, sh_h], fill=(0, 0, 0, 50)
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(radius=12))
 
@@ -114,8 +118,8 @@ def _composite(bg: Image.Image, obj: Image.Image, canvas_size: tuple) -> Image.I
     oy = H - new_h - 30
 
     result = bg.convert("RGBA")
-    result.paste(shadow, (ox, oy + new_h - shadow.height // 2), shadow)
-    result.paste(obj, (ox, oy), obj)
+    result.paste(shadow, (ox, oy + new_h - sh_h // 2), shadow)
+    result.paste(obj_resized, (ox, oy), obj_resized)
     return result.convert("RGB")
 
 
@@ -127,8 +131,10 @@ async def _analyze_subject(image_path: str) -> str:
             model="gpt-4o", max_tokens=30,
             messages=[{"role": "user", "content": [
                 {"type": "image_url",
-                 "image_url": {"url": f"data:image/jpeg;base64,{image_data}", "detail": "low"}},
-                {"type": "text", "text": "In 5 words, what is the main product? English only."}
+                 "image_url": {"url": f"data:image/jpeg;base64,{image_data}",
+                               "detail": "low"}},
+                {"type": "text",
+                 "text": "In 5 words, what is the main product? English only."}
             ]}]
         )
         return response.choices[0].message.content.strip()
@@ -139,12 +145,11 @@ async def _analyze_subject(image_path: str) -> str:
 async def transform_image(source_path: str, style: str,
                           canvas_size: tuple = (1080, 1080),
                           ad_text: str = "") -> str:
-    logger.info(f"Compositing: {source_path}, style: {style}")
+    """Старый интерфейс — оставлен для совместимости."""
     try:
         subject_desc = await _analyze_subject(source_path)
         decoration_hint = _get_decoration_hint(ad_text)
 
-        # Параллельно: вырезаем объект + генерируем фон
         bg_url_coro = _generate_background(style, subject_desc, decoration_hint)
         obj_coro = asyncio.to_thread(_remove_background, source_path)
         bg_url, obj_img = await asyncio.gather(bg_url_coro, obj_coro)
@@ -159,12 +164,25 @@ async def transform_image(source_path: str, style: str,
 
         out_path = os.path.join(out_dir, f"composite_{style}.png")
         result.save(out_path, "PNG", quality=95)
-        logger.info(f"Saved: {out_path}")
         return out_path
 
     except Exception as e:
-        logger.error(f"Compositing failed: {e}", exc_info=True)
+        logger.error(f"transform_image failed: {e}", exc_info=True)
         return await _fallback(source_path, style, canvas_size)
+
+
+async def transform_image_with_obj(bg_url: str, obj_img: Image.Image,
+                                   style: str, output_dir: str,
+                                   canvas_size: tuple = (1080, 1080)) -> str:
+    """Новый интерфейс — принимает готовый объект без фона."""
+    bg_path = os.path.join(output_dir, f"bg_{style}.png")
+    await _download_image(bg_url, bg_path)
+    bg_img = Image.open(bg_path).convert("RGB")
+    result = _composite(bg_img, obj_img, canvas_size)
+    result = ImageEnhance.Contrast(result).enhance(1.05)
+    out_path = os.path.join(output_dir, f"composite_{style}.png")
+    result.save(out_path, "PNG", quality=95)
+    return out_path
 
 
 async def generate_image_from_text(ad_text: str, style: str,
@@ -194,7 +212,8 @@ async def generate_image_from_text(ad_text: str, style: str,
         out_path = f"/tmp/creative_temp/generated_{style}.png"
         os.makedirs("/tmp/creative_temp", exist_ok=True)
         await _download_image(img_resp.data[0].url, out_path)
-        Image.open(out_path).resize(canvas_size, Image.LANCZOS).save(out_path, "PNG", quality=95)
+        Image.open(out_path).resize(canvas_size, Image.LANCZOS).save(
+            out_path, "PNG", quality=95)
         return out_path
 
     except Exception as e:
@@ -231,7 +250,7 @@ def _fallback_sync(source_path, style, canvas_size):
         new_h = int(new_w / ratio)
         src = src.resize((new_w, new_h), Image.LANCZOS)
         bg.paste(src, ((W-new_w)//2, H-new_h-30))
-    out_dir = os.path.dirname(source_path) if source_path else "/tmp/creative_temp"
+    out_dir = "/tmp/creative_temp"
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"composite_{style}.png")
     bg.save(out_path, "PNG", quality=95)
