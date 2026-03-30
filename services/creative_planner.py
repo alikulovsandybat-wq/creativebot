@@ -7,54 +7,81 @@ from models.creative import CreativePlan
 logger = logging.getLogger(__name__)
 client = AsyncOpenAI()
 
-# Базовый стиль фотографии — применяется ко всем промптам
-PHOTO_STYLE = (
-    "shot on Canon EOS R5, 85mm lens, f/2.0 aperture, "
-    "studio strobe lighting with softbox, sharp crisp focus, "
-    "professional commercial photo shoot, editorial advertising style, "
-    "vivid natural colors, photorealistic, "
-    "NOT cartoon, NOT anime, NOT illustration, NOT CGI, NOT 3D render, "
-    "NOT AI generated look, NOT painting"
+# Суффикс фотостиля — добавляется к каждому промпту фона
+PHOTO_SUFFIX = (
+    "photorealistic advertising photo, shot on Canon EOS R5, 85mm lens, "
+    "professional studio lighting tailored to the product, sharp focus, "
+    "commercial photography style, "
+    "NO cartoon, NO CGI render, NO illustration, NO anime, NO painting, "
+    "NO cluttered background, NO people. "
+    "Clean area at top 40% of image for text overlay. "
+    "NO text, NO words, NO letters in the image itself. "
+    "1:1 square format."
 )
 
-SYSTEM_PROMPT = f"""Ты — топовый арт-директор рекламных креативов.
-Твоя задача: из рекламного текста создать структуру баннера И три разных визуальных сцены.
+SYSTEM_PROMPT = """Ты — топовый арт-директор рекламных креативов для Instagram и Facebook.
 
-ГЛАВНЫЕ ПРАВИЛА ТЕКСТА:
-- headline: цепляющий, обычный регистр, 4-7 слов
+ЗАДАЧА: из рекламного текста создать структуру баннера + три РАЗНЫХ целостных композиции.
+
+═══ ПРАВИЛА ТЕКСТА ═══
+- headline: цепляющий, обычный регистр, 4-7 слов, конкретный оффер
 - subheadline: уточнение одной строкой
-- bullets: 2-3 штуки, начинаются с "—", 3-5 слов каждый
-- price: если есть в тексте
-- badge: город или статус (Астана / Акция / Новинка)
-- cta: конкретный призыв
+- bullets: ровно 3 штуки, начинаются с "—", максимум 5 слов каждый
+- price: только цифра + валюта (пример: "24 000 000 ₸")
+- badge: город ИЛИ статус (Астана / Алматы / Акция / Хит / Новинка)
+- cta: конкретный призыв (Напишите нам / Узнать цену / Скачать каталог)
 
-ПРАВИЛА ДЛЯ ТРЁХ ВИЗУАЛЬНЫХ СЦЕН:
-Создай три РАЗНЫХ сцены основываясь на СМЫСЛЕ рекламного текста.
-Каждая сцена — другая интерпретация того же оффера.
+═══ ТРИ ВАРИАНТА ФОНА ═══
 
-Важно:
-- Читай текст внимательно. Если написано "зимняя резина" — добавь снег и шины. Если нет — не добавляй.
-- Если написано "8 марта" — добавь весеннее настроение. Если нет — просто нейтральный фон.
-- Фон должен усиливать смысл оффера, а не противоречить ему.
-- Все три сцены фотореалистичные, не мультяшные, студийный или lifestyle стиль.
+Создавай мизансцену где продукт является ГЛАВНЫМ ГЕРОЕМ сцены.
+Продукт должен быть естественно интегрирован — с правильными тенями и освещением.
+Добавляй УСИЛИТЕЛИ КОНТЕКСТА из текста оффера:
 
-Стили:
-- "minimal": чистый, светлый, воздушный — студия или минималистичный интерьер
-- "conversion": динамичный, яркий, энергичный — активная lifestyle сцена
-- "premium": статусный, элегантный, дорогой — премиальный интерьер или драматическая сцена
+УСИЛИТЕЛИ (примеры):
+- "зимняя резина / шины" → стопка зимних шин рядом, снег на земле
+- "подарок / сертификат" → красивая карточка сертификата или подарочная коробка рядом
+- "доставка за 1 день" → коробки на паллете, чистый склад
+- "запчасти" → детали аккуратно разложены, профессиональный бокс
+- "8 марта / весна" → весенние цветы, пастельные тона
+- "кредит / рассрочка" → нейтральная финансовая атмосфера, современный офис
+Если в тексте нет специфических деталей — просто чистая сцена ниши.
+
+ВАРИАНТЫ:
+
+bg_minimal: Светлый, чистый, скандинавский стиль.
+Продукт крупным планом в белом/кремовом интерьере или на светлом фоне.
+Фокус только на продукте, минимум деталей. Много воздуха.
+Верхняя часть кадра — светлая чистая зона для текста.
+
+bg_conversion: Контекстный, сторителлинг, динамичный.
+Продукт в реалистичной сцене с усилителями контекста из оффера.
+Яркий заливающий свет. Сцена рассказывает историю продукта.
+Зона для текста вверху с лёгким светлым перекрытием.
+
+bg_premium: Тёмный, драматичный, статусный.
+Продукт как арт-объект на тёмном фоне (антрацит / чёрный).
+Chiaroscuro освещение — резкие тени, акцентный свет на продукте.
+Дорогие текстуры: мрамор, металл, тёмное дерево.
+Верхняя зона кадра — тёмная для белого текста.
+
+ВАЖНО:
+- Описывай на АНГЛИЙСКОМ, 20-30 слов
+- НЕТ людей в кадре
+- НЕТ текста и логотипов в кадре
+- Фон не должен перебивать продукт
 
 Отвечай ТОЛЬКО валидным JSON без markdown:
-{{
+{
   "headline": "...",
   "subheadline": "...",
   "bullets": ["— ...", "— ...", "— ..."],
   "price": "...",
   "badge": "...",
   "cta": "...",
-  "bg_minimal": "English description of minimal style background scene, max 30 words",
-  "bg_conversion": "English description of conversion style background scene, max 30 words",
-  "bg_premium": "English description of premium style background scene, max 30 words"
-}}"""
+  "bg_minimal": "...",
+  "bg_conversion": "...",
+  "bg_premium": "..."
+}"""
 
 
 async def build_creative_plan(ad_text: str,
@@ -78,7 +105,8 @@ async def build_creative_plan(ad_text: str,
                     "type": "text",
                     "text": (
                         f"Рекламный текст:\n{ad_text}\n\n"
-                        f"Посмотри на фото и создай план баннера с тремя разными сценами."
+                        f"Посмотри на фото продукта и создай план баннера. "
+                        f"Учти продукт при описании фонов."
                     )
                 }
             ]
@@ -88,7 +116,7 @@ async def build_creative_plan(ad_text: str,
             "role": "user",
             "content": (
                 f"Рекламный текст:\n{ad_text}\n\n"
-                f"Создай план баннера с тремя разными сценами."
+                f"Создай план баннера с тремя подходящими фонами."
             )
         })
 
@@ -96,12 +124,11 @@ async def build_creative_plan(ad_text: str,
         model="gpt-4o",
         messages=messages,
         max_tokens=700,
-        temperature=0.7
+        temperature=0.6
     )
 
     raw = response.choices[0].message.content.strip()
 
-    # Чистим от markdown
     if "```" in raw:
         start = raw.find("{")
         end = raw.rfind("}") + 1
@@ -120,23 +147,17 @@ async def build_creative_plan(ad_text: str,
         data = {
             "headline": ad_text[:40],
             "subheadline": "",
-            "bullets": [],
+            "bullets": ["— Высокое качество", "— Быстрая доставка", "— Лучшая цена"],
             "price": "",
             "badge": "Акция",
             "cta": "Напишите нам",
-            "bg_minimal": "clean bright studio, white background, natural light",
-            "bg_conversion": "modern interior, bright colors, lifestyle",
-            "bg_premium": "luxury dark studio, dramatic lighting, elegant"
+            "bg_minimal": "clean bright studio, white background, product as hero, natural light",
+            "bg_conversion": "product in context scene, warm lighting, lifestyle atmosphere",
+            "bg_premium": "product on dark elegant background, dramatic spotlight, luxury feel"
         }
 
-    # Добавляем фотостиль к каждому промпту
-    def enrich_prompt(scene_desc: str) -> str:
-        return (
-            f"{scene_desc}. "
-            f"{PHOTO_STYLE}. "
-            f"Square format. Bottom area slightly darker for text overlay. "
-            f"NO text, NO words, NO letters in image."
-        )
+    def enrich(scene_desc: str) -> str:
+        return f"{scene_desc}. {PHOTO_SUFFIX}"
 
     plan = CreativePlan(
         headline=data.get("headline", ""),
@@ -145,12 +166,17 @@ async def build_creative_plan(ad_text: str,
         price=data.get("price", ""),
         badge=data.get("badge", ""),
         cta=data.get("cta", "Узнать подробнее"),
-        style="minimal",  # дефолт, будет переопределён по стилю
+        style="minimal",
     )
 
-    # Три разных промпта для трёх стилей
-    plan.bg_minimal = enrich_prompt(data.get("bg_minimal", "clean bright studio"))
-    plan.bg_conversion = enrich_prompt(data.get("bg_conversion", "bright modern scene"))
-    plan.bg_premium = enrich_prompt(data.get("bg_premium", "luxury elegant studio"))
+    plan.bg_minimal = enrich(
+        data.get("bg_minimal", "clean bright studio, white background, natural light")
+    )
+    plan.bg_conversion = enrich(
+        data.get("bg_conversion", "product in realistic context scene, warm lighting")
+    )
+    plan.bg_premium = enrich(
+        data.get("bg_premium", "dark elegant background, dramatic spotlight, luxury")
+    )
 
     return plan
