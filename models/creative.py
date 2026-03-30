@@ -13,5 +13,13 @@ class CreativePlan:
     style: str = "minimal"
     brand_style: str = "universal"
     visual_additions: list[str] = field(default_factory=list)
+
+    # Три разных фона под три стиля
+    bg_minimal: str = ""
+    bg_conversion: str = ""
+    bg_premium: str = ""
+
+    # Устаревшее поле — оставляем для совместимости
+    dalle_bg_prompt: str = ""
+
     source_image_path: Optional[str] = None
-    generated_image_url: Optional[str] = None
