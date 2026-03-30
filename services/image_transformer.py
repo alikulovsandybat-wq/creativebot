@@ -11,22 +11,23 @@ client = AsyncOpenAI()
 
 BACKGROUND_PROMPTS = {
     "premium": (
-        "Empty luxury dark studio background, dramatic cinematic lighting, "
-        "deep shadows, elegant premium atmosphere, black and dark tones, "
-        "soft gradient floor reflection, hyperrealistic photography background, "
-        "NO objects, NO people, NO text, just empty background"
+        "Empty luxury studio background, elegant focused spotlight, "
+        "dark grey and black tones, soft gradient floor reflection, "
+        "sophisticated premium atmosphere, hyperrealistic photography background, "
+        "NOT gloomy, NOT horror, NO objects, NO people, NO text, just empty background, shot on Canon EOS R5, 85mm lens, f/2.0, studio strobe with softbox, sharp focus, professional commercial photo shoot, editorial style, vivid natural colors, NOT AI look, NOT CGI, NOT illustration"
     ),
     "conversion": (
-        "Empty bright outdoor or modern interior scene, natural sunlight, "
-        "vibrant realistic colors, clean modern environment, "
-        "hyperrealistic photography, NO objects, NO people, NO text, just empty background"
+        "Empty bright modern interior or outdoor scene, warm natural sunlight, "
+        "vibrant clean colors, fresh modern environment, "
+        "bright and cheerful, hyperrealistic photography, "
+        "NO objects, NO people, NO text, just empty background, shot on Canon EOS R5, 85mm lens, f/2.0, studio strobe with softbox, sharp focus, professional commercial photo shoot, editorial style, vivid natural colors, NOT AI look, NOT CGI, NOT illustration"
     ),
     "minimal": (
-        "Empty clean bright studio, soft natural window light, "
-        "light cream or white wall, clean wooden surface or table, "
-        "airy minimalist Scandinavian atmosphere, "
-        "hyperrealistic photography background, NO objects, NO people, "
-        "NO text, just empty background"
+        "Empty clean bright studio, soft natural window light through large windows, "
+        "light cream or white wall, clean light wooden surface, "
+        "airy minimalist Scandinavian atmosphere, sunny and fresh, "
+        "hyperrealistic photography background, NOT dark, NOT moody, "
+        "NO objects, NO people, NO text, just empty background, shot on Canon EOS R5, 85mm lens, f/2.0, studio strobe with softbox, sharp focus, professional commercial photo shoot, editorial style, vivid natural colors, NOT AI look, NOT CGI, NOT illustration"
     ),
 }
 
@@ -56,7 +57,7 @@ async def _generate_background(style: str, subject_desc: str,
                                 decoration_hint: str) -> str:
     bg_prompt = BACKGROUND_PROMPTS.get(style, BACKGROUND_PROMPTS["minimal"])
     if decoration_hint:
-        bg_prompt = bg_prompt.replace("just empty background",
+        bg_prompt = bg_prompt.replace("just empty background, shot on Canon EOS R5, 85mm lens, f/2.0, studio strobe with softbox, sharp focus, professional commercial photo shoot, editorial style, vivid natural colors, NOT AI look, NOT CGI, NOT illustration",
                                       f"just background, {decoration_hint}")
     if any(w in subject_desc.lower() for w in ["car", "auto", "vehicle"]):
         bg_prompt += " Wide showroom floor visible."
@@ -255,3 +256,37 @@ def _fallback_sync(source_path, style, canvas_size):
     out_path = os.path.join(out_dir, f"composite_{style}.png")
     bg.save(out_path, "PNG", quality=95)
     return out_path
+
+
+async def _generate_background_from_prompt(base_prompt: str, style: str,
+                                            decoration_hint: str = "") -> str:
+    """
+    Генерирует фон используя готовый нишевый промпт.
+    Намного лучше чем generic промпт.
+    """
+    # Адаптируем под стиль
+    style_additions = {
+        "premium": "dramatic lighting, dark elegant atmosphere, luxury feel",
+        "conversion": "bright vibrant colors, energetic, eye-catching",
+        "minimal": "soft natural light, clean minimal, airy",
+    }
+
+    style_add = style_additions.get(style, style_additions["minimal"])
+    decoration = f", {decoration_hint}" if decoration_hint else ""
+
+    full_prompt = (
+        f"{base_prompt}, {style_add}{decoration}. "
+        f"Square format 1:1. Bottom area slightly darker for text. "
+        f"Hyperrealistic commercial photography. NO text, NO words, NO letters."
+    )
+
+    logger.info(f"Niche prompt ({style}): {full_prompt[:120]}...")
+
+    response = await client.images.generate(
+        model="dall-e-3",
+        prompt=full_prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1
+    )
+    return response.data[0].url
