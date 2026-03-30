@@ -52,13 +52,44 @@ THEMES = {
     },
 }
 
+# Системные пути для разных ОС — Railway использует Debian/Ubuntu
+SYSTEM_FONT_PATHS = [
+    # Noto Sans (устанавливается через nixpacks на Railway)
+    "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    # DejaVu — почти всегда есть
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    # Liberation — альтернатива
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+]
+
+def _find_system_font(bold: bool = False) -> str | None:
+    """Ищет любой доступный системный шрифт."""
+    candidates = [
+        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf" if bold else "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
 
 def _get_font(size, weight="regular", brand_style="universal"):
-    weight_map = {"bold": "bold.ttf", "semibold": "semibold.ttf",
-                  "regular": "regular.ttf", "light": "light.ttf"}
+    weight_map = {
+        "bold": "bold.ttf",
+        "semibold": "semibold.ttf",
+        "regular": "regular.ttf",
+        "light": "light.ttf",
+    }
     subdir = BRAND_FONT_DIRS.get(brand_style, "universal")
     filename = weight_map.get(weight, "regular.ttf")
 
+    # Сначала пробуем папку проекта (fonts/)
     for folder in [subdir, "universal"]:
         path = os.path.join(FONTS_DIR, folder, filename)
         if os.path.exists(path):
@@ -67,14 +98,19 @@ def _get_font(size, weight="regular", brand_style="universal"):
             except Exception:
                 continue
 
-    fallbacks = {
-        "bold": "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-        "semibold": "/usr/share/fonts/truetype/noto/NotoSans-SemiBold.ttf",
-        "regular": "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "light": "/usr/share/fonts/truetype/noto/NotoSans-Light.ttf",
-    }
+    # Fallback на системные шрифты
+    is_bold = weight in ("bold", "semibold")
+    system_path = _find_system_font(bold=is_bold)
+    if system_path:
+        try:
+            return ImageFont.truetype(system_path, size)
+        except Exception:
+            pass
+
+    # Последний резерв — Pillow default (мелкий но не падает)
     try:
-        return ImageFont.truetype(fallbacks.get(weight, fallbacks["regular"]), size)
+        # Pillow 10+ поддерживает size в load_default
+        return ImageFont.load_default(size=size)
     except Exception:
         return ImageFont.load_default()
 
@@ -114,7 +150,8 @@ def render_banner(plan: CreativePlan,
         else:
             new_w, new_h = W, int(W / img_ratio)
         bg = bg.resize((new_w, new_h), Image.LANCZOS)
-        left, top = (new_w - W) // 2, (new_h - H) // 2
+        left = (new_w - W) // 2
+        top = (new_h - H) // 2
         bg = bg.crop((left, top, left + W, top + H))
     else:
         bg = Image.new("RGB", (W, H), theme["bg_fallback"])
@@ -130,7 +167,10 @@ def render_banner(plan: CreativePlan,
         bbox = draw.textbbox((0, 0), plan.badge, font=font)
         tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
         px, py = 14, 7
-        draw.rounded_rectangle([x, y, x+tw+px*2, y+th+py*2], radius=5, fill=theme["badge_bg"])
+        draw.rounded_rectangle(
+            [x, y, x+tw+px*2, y+th+py*2],
+            radius=5, fill=theme["badge_bg"]
+        )
         draw.text((x+px, y+py), plan.badge, font=font, fill=theme["badge_text"])
         y += th + py*2 + 20
 
@@ -157,8 +197,10 @@ def render_banner(plan: CreativePlan,
         bbox = draw.textbbox((x, y), plan.price, font=font)
         tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
         px, py = 16, 8
-        draw.rounded_rectangle([x-px, y-py, x+tw+px, y+th+py],
-                               radius=6, outline=theme["price_color"], width=2)
+        draw.rounded_rectangle(
+            [x-px, y-py, x+tw+px, y+th+py],
+            radius=6, outline=theme["price_color"], width=2
+        )
         draw.text((x, y), plan.price, font=font, fill=theme["price_color"])
         y += th + py + 22
 
@@ -183,9 +225,18 @@ def render_banner(plan: CreativePlan,
         rect = [x, cta_y, x+btn_w, cta_y+th+py*2]
         draw.rounded_rectangle(rect, radius=8, fill=theme["cta_bg"])
         if plan.style == "minimal":
-            draw.rounded_rectangle(rect, radius=8, outline=theme["cta_border"], width=2)
-        draw.text((x + (btn_w-tw)//2, cta_y+py), plan.cta, font=font, fill=theme["cta_text"])
+            draw.rounded_rectangle(
+                rect, radius=8,
+                outline=theme["cta_border"], width=2
+            )
+        draw.text(
+            (x + (btn_w-tw)//2, cta_y+py),
+            plan.cta, font=font, fill=theme["cta_text"]
+        )
 
-    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(output_path) if os.path.dirname(output_path) else ".",
+        exist_ok=True
+    )
     bg.save(output_path, "PNG", quality=95)
     return output_path
