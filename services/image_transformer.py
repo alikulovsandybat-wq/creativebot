@@ -3,120 +3,73 @@ import base64
 import asyncio
 import logging
 import aiohttp
-from PIL import Image, ImageFilter, ImageEnhance, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 client = AsyncOpenAI()
 
-STYLE_PROMPTS = {
+BACKGROUND_PROMPTS = {
     "premium": (
-        "luxury dark background, dramatic studio lighting, deep shadows, "
-        "elegant atmosphere, high-end commercial photography, black and gold tones, "
-        "cinematic depth of field, premium product advertisement"
+        "Empty luxury dark studio background, dramatic cinematic lighting, "
+        "deep shadows, elegant premium atmosphere, black and dark tones, "
+        "soft gradient floor reflection, hyperrealistic photography background, "
+        "NO objects, NO people, NO text, just empty background"
     ),
     "conversion": (
-        "bright dynamic background, vibrant colors, energetic commercial photography, "
-        "clean modern style, bold advertising visual, product spotlight, "
-        "professional ad campaign, eye-catching composition"
+        "Empty bright outdoor scene, natural sunlight, vibrant realistic colors, "
+        "clean modern environment, professional advertising background, "
+        "hyperrealistic photography, NO objects, NO people, NO text, just empty background"
     ),
     "minimal": (
-        "clean white or light grey background, soft natural lighting, "
-        "minimalist product photography, airy and fresh aesthetic, "
-        "Scandinavian style, negative space, elegant simplicity"
+        "Empty clean bright studio, soft natural window light, "
+        "light cream or white wall, clean wooden surface, "
+        "airy minimalist Scandinavian atmosphere, "
+        "hyperrealistic photography background, NO objects, NO people, "
+        "NO text, just empty background"
     ),
 }
 
-
-async def _analyze_image(image_path: str) -> dict:
-    """
-    GPT-4 Vision анализирует фото:
-    - что за продукт
-    - какие визуальные элементы добавить исходя из контекста
-    - цвета и стиль
-    """
-    with open(image_path, "rb") as f:
-        image_data = base64.b64encode(f.read()).decode("utf-8")
-
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        max_tokens=400,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{image_data}",
-                        "detail": "low"
-                    }
-                },
-                {
-                    "type": "text",
-                    "text": (
-                        "Describe this product/subject for a commercial photo shoot. "
-                        "Return JSON only:\n"
-                        "{\n"
-                        '  "subject": "exact description of main subject",\n'
-                        '  "category": "product category (car/clothing/food/beauty/etc)",\n'
-                        '  "colors": "main colors of subject",\n'
-                        '  "additions": "what props/elements to add around it for advertising (e.g. gift ribbon, snow, flowers)"\n'
-                        "}"
-                    )
-                }
-            ]
-        }]
-    )
-
-    import json
-    raw = response.choices[0].message.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {
-            "subject": "product",
-            "category": "product",
-            "colors": "neutral",
-            "additions": "decorative elements"
-        }
+DECORATION_HINTS = {
+    "шин": "with winter tires stacked as gift on the side",
+    "резин": "with winter tires stacked as gift on the side",
+    "подарок": "with gift box with ribbon on the side",
+    "сертификат": "with elegant gift certificate card nearby",
+    "скидк": "with sale tag visible",
+    "зим": "with light snow on the surface",
+    "8 март": "with spring flowers and gift box nearby",
+    "новый год": "with christmas decorations nearby",
+}
 
 
-async def _generate_scene(analysis: dict, style: str, canvas_size: tuple) -> str:
-    """
-    DALL-E 3 генерирует рекламную сцену на основе анализа.
-    Возвращает URL сгенерированного изображения.
-    """
-    style_desc = STYLE_PROMPTS.get(style, STYLE_PROMPTS["conversion"])
-    w, h = canvas_size
+def _get_decoration_hint(ad_text: str) -> str:
+    if not ad_text:
+        return ""
+    text_lower = ad_text.lower()
+    for keyword, hint in DECORATION_HINTS.items():
+        if keyword in text_lower:
+            return hint
+    return ""
 
-    prompt = (
-        f"Professional advertising photograph: {analysis['subject']} "
-        f"({analysis['colors']} colors) with {analysis['additions']}. "
-        f"Style: {style_desc}. "
-        f"Leave the bottom third of the image darker/blurred for text overlay. "
-        f"No text, no words, no letters in the image. "
-        f"Square format, ultra high quality commercial photography."
-    )
 
-    logger.info(f"DALL-E prompt: {prompt[:100]}...")
+async def _generate_background(style: str, subject_desc: str, decoration_hint: str) -> str:
+    bg_prompt = BACKGROUND_PROMPTS.get(style, BACKGROUND_PROMPTS["minimal"])
+    if decoration_hint:
+        bg_prompt = bg_prompt.replace("just empty background",
+                                      f"just background, {decoration_hint}")
+    if any(w in subject_desc.lower() for w in ["car", "auto", "vehicle"]):
+        bg_prompt += " Wide showroom floor visible."
+    elif any(w in subject_desc.lower() for w in ["flower", "plant", "bouquet"]):
+        bg_prompt += " Garden shelf or wooden table visible."
 
     response = await client.images.generate(
-        model="dall-e-3",
-        prompt=prompt,
-        size="1024x1024",
-        quality="standard",
-        n=1
+        model="dall-e-3", prompt=bg_prompt,
+        size="1024x1024", quality="standard", n=1
     )
-
     return response.data[0].url
 
 
 async def _download_image(url: str, save_path: str):
-    """Скачивает сгенерированное изображение."""
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             if resp.status == 200:
@@ -124,137 +77,162 @@ async def _download_image(url: str, save_path: str):
                     f.write(await resp.read())
 
 
-async def transform_image(source_path: str, style: str,
-                          canvas_size: tuple = (1080, 1080)) -> str:
-    """
-    Полный пайплайн трансформации:
-    1. GPT-4 Vision анализирует фото
-    2. DALL-E генерирует рекламную сцену
-    3. Возвращает путь к готовому фону
-    """
-    logger.info(f"Transforming image: {source_path}, style: {style}")
-
+def _remove_background(source_path: str) -> Image.Image:
     try:
-        # Шаг 1 — анализируем фото
-        analysis = await _analyze_image(source_path)
-        logger.info(f"Analysis: {analysis}")
+        from rembg import remove
+        with open(source_path, "rb") as f:
+            result = remove(f.read())
+        import io
+        return Image.open(io.BytesIO(result)).convert("RGBA")
+    except Exception as e:
+        logger.error(f"rembg failed: {e}")
+        return Image.open(source_path).convert("RGBA")
 
-        # Шаг 2 — генерируем сцену
-        image_url = await _generate_scene(analysis, style, canvas_size)
-        logger.info(f"Generated URL: {image_url[:50]}...")
 
-        # Шаг 3 — скачиваем
+def _composite(bg: Image.Image, obj: Image.Image, canvas_size: tuple) -> Image.Image:
+    W, H = canvas_size
+    bg = bg.resize((W, H), Image.LANCZOS)
+
+    max_obj_h = int(H * 0.62)
+    max_obj_w = int(W * 0.85)
+    ratio = obj.width / obj.height
+    if obj.width / max_obj_w > obj.height / max_obj_h:
+        new_w, new_h = max_obj_w, int(max_obj_w / ratio)
+    else:
+        new_h, new_w = max_obj_h, int(max_obj_h * ratio)
+
+    obj = obj.resize((new_w, new_h), Image.LANCZOS)
+
+    # Тень под объект
+    shadow = Image.new("RGBA", (new_w, max(int(new_h * 0.06), 20)), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse(
+        [new_w//6, 0, new_w*5//6, shadow.height], fill=(0, 0, 0, 50)
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=12))
+
+    ox = (W - new_w) // 2
+    oy = H - new_h - 30
+
+    result = bg.convert("RGBA")
+    result.paste(shadow, (ox, oy + new_h - shadow.height // 2), shadow)
+    result.paste(obj, (ox, oy), obj)
+    return result.convert("RGB")
+
+
+async def _analyze_subject(image_path: str) -> str:
+    try:
+        with open(image_path, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+        response = await client.chat.completions.create(
+            model="gpt-4o", max_tokens=30,
+            messages=[{"role": "user", "content": [
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/jpeg;base64,{image_data}", "detail": "low"}},
+                {"type": "text", "text": "In 5 words, what is the main product? English only."}
+            ]}]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return "product"
+
+
+async def transform_image(source_path: str, style: str,
+                          canvas_size: tuple = (1080, 1080),
+                          ad_text: str = "") -> str:
+    logger.info(f"Compositing: {source_path}, style: {style}")
+    try:
+        subject_desc = await _analyze_subject(source_path)
+        decoration_hint = _get_decoration_hint(ad_text)
+
+        # Параллельно: вырезаем объект + генерируем фон
+        bg_url_coro = _generate_background(style, subject_desc, decoration_hint)
+        obj_coro = asyncio.to_thread(_remove_background, source_path)
+        bg_url, obj_img = await asyncio.gather(bg_url_coro, obj_coro)
+
         out_dir = os.path.dirname(source_path)
-        out_path = os.path.join(out_dir, f"transformed_{style}.png")
-        await _download_image(image_url, out_path)
+        bg_path = os.path.join(out_dir, f"bg_{style}.png")
+        await _download_image(bg_url, bg_path)
+        bg_img = Image.open(bg_path).convert("RGB")
 
-        # Шаг 4 — ресайз под canvas
-        img = Image.open(out_path).convert("RGB")
-        img = img.resize(canvas_size, Image.LANCZOS)
-        img.save(out_path, "PNG", quality=95)
+        result = _composite(bg_img, obj_img, canvas_size)
+        result = ImageEnhance.Contrast(result).enhance(1.05)
 
-        logger.info(f"Transformed image saved: {out_path}")
+        out_path = os.path.join(out_dir, f"composite_{style}.png")
+        result.save(out_path, "PNG", quality=95)
+        logger.info(f"Saved: {out_path}")
         return out_path
 
     except Exception as e:
-        logger.error(f"Transform failed: {e}, using gradient fallback")
-        return await _gradient_fallback(source_path, style, canvas_size)
-
-
-async def _gradient_fallback(source_path: str, style: str,
-                             canvas_size: tuple) -> str:
-    """
-    Fallback если DALL-E недоступен —
-    красивый градиентный фон с исходным фото.
-    """
-    return await asyncio.to_thread(
-        _gradient_fallback_sync, source_path, style, canvas_size
-    )
-
-
-def _gradient_fallback_sync(source_path: str, style: str,
-                             canvas_size: tuple) -> str:
-    BACKGROUNDS = {
-        "premium": [(10, 10, 20), (30, 20, 50)],
-        "conversion": [(15, 25, 50), (20, 40, 80)],
-        "minimal": [(240, 238, 230), (220, 218, 210)],
-    }
-    W, H = canvas_size
-    colors = BACKGROUNDS.get(style, BACKGROUNDS["conversion"])
-    c1, c2 = colors
-
-    bg = Image.new("RGB", (W, H))
-    draw = ImageDraw.Draw(bg)
-    for y in range(H):
-        t = y / H
-        r = int(c1[0] + (c2[0] - c1[0]) * t)
-        g = int(c1[1] + (c2[1] - c1[1]) * t)
-        b = int(c1[2] + (c2[2] - c1[2]) * t)
-        draw.line([(0, y), (W, y)], fill=(r, g, b))
-
-    if source_path and os.path.exists(source_path):
-        src = Image.open(source_path).convert("RGB")
-        max_w, max_h = int(W * 0.9), int(H * 0.6)
-        ratio = src.width / src.height
-        new_w = min(max_w, int(max_h * ratio))
-        new_h = int(new_w / ratio)
-        src = src.resize((new_w, new_h), Image.LANCZOS)
-        ox = (W - new_w) // 2
-        oy = H - new_h - 40
-        bg.paste(src, (ox, oy))
-
-    out_dir = os.path.dirname(source_path) if source_path else "/tmp"
-    out_path = os.path.join(out_dir, f"transformed_{style}.png")
-    bg.save(out_path, "PNG", quality=95)
-    return out_path
+        logger.error(f"Compositing failed: {e}", exc_info=True)
+        return await _fallback(source_path, style, canvas_size)
 
 
 async def generate_image_from_text(ad_text: str, style: str,
                                    canvas_size: tuple = (1080, 1080)) -> str:
-    """
-    Когда пользователь дал только текст без фото —
-    GPT придумывает визуал, DALL-E рисует.
-    """
-    style_desc = STYLE_PROMPTS.get(style, STYLE_PROMPTS["conversion"])
+    try:
+        decoration = _get_decoration_hint(ad_text)
+        bg_base = BACKGROUND_PROMPTS.get(style, BACKGROUND_PROMPTS["minimal"])
 
-    # GPT придумывает что нарисовать
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        max_tokens=200,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Based on this ad text, describe a perfect product/scene for a DALL-E image. "
-                f"Return only a short English description (max 50 words) of what to show visually. "
-                f"No text in image. Ad text: {ad_text}"
-            )
-        }]
-    )
+        resp = await client.chat.completions.create(
+            model="gpt-4o", max_tokens=60,
+            messages=[{"role": "user", "content": (
+                f"In 15 words max, describe a hyperrealistic product for this ad "
+                f"(English, no text in image): {ad_text}"
+            )}]
+        )
+        product_desc = resp.choices[0].message.content.strip()
 
-    visual_desc = response.choices[0].message.content.strip()
-    logger.info(f"Visual description: {visual_desc}")
+        prompt = (
+            f"Hyperrealistic commercial photo: {product_desc}. "
+            f"{decoration}. {bg_base}. Square format. "
+            f"Bottom third darker. NO text, NO words."
+        )
+        img_resp = await client.images.generate(
+            model="dall-e-3", prompt=prompt,
+            size="1024x1024", quality="standard", n=1
+        )
+        out_path = f"/tmp/creative_temp/generated_{style}.png"
+        os.makedirs("/tmp/creative_temp", exist_ok=True)
+        await _download_image(img_resp.data[0].url, out_path)
+        Image.open(out_path).resize(canvas_size, Image.LANCZOS).save(out_path, "PNG", quality=95)
+        return out_path
 
-    prompt = (
-        f"{visual_desc}. "
-        f"Style: {style_desc}. "
-        f"Leave bottom third darker for text overlay. "
-        f"No text, no words. Square format, ultra high quality commercial photography."
-    )
+    except Exception as e:
+        logger.error(f"Text gen failed: {e}")
+        return await _fallback(None, style, canvas_size)
 
-    img_response = await client.images.generate(
-        model="dall-e-3",
-        prompt=prompt,
-        size="1024x1024",
-        quality="standard",
-        n=1
-    )
 
-    url = img_response.data[0].url
-    out_path = f"/tmp/creative_temp/generated_{style}.png"
-    os.makedirs("/tmp/creative_temp", exist_ok=True)
-    await _download_image(url, out_path)
+async def _fallback(source_path, style, canvas_size):
+    return await asyncio.to_thread(_fallback_sync, source_path, style, canvas_size)
 
-    img = Image.open(out_path).resize(canvas_size, Image.LANCZOS)
-    img.save(out_path, "PNG", quality=95)
 
+def _fallback_sync(source_path, style, canvas_size):
+    COLORS = {
+        "premium": [(10, 10, 20), (30, 20, 50)],
+        "conversion": [(15, 25, 50), (20, 40, 80)],
+        "minimal": [(245, 243, 238), (225, 222, 215)],
+    }
+    W, H = canvas_size
+    c1, c2 = COLORS.get(style, COLORS["minimal"])
+    bg = Image.new("RGB", (W, H))
+    draw = ImageDraw.Draw(bg)
+    for y in range(H):
+        t = y / H
+        draw.line([(0, y), (W, y)], fill=(
+            int(c1[0]+(c2[0]-c1[0])*t),
+            int(c1[1]+(c2[1]-c1[1])*t),
+            int(c1[2]+(c2[2]-c1[2])*t)
+        ))
+    if source_path and os.path.exists(source_path):
+        src = Image.open(source_path).convert("RGB")
+        ratio = src.width / src.height
+        new_h = int(H * 0.6)
+        new_w = min(int(new_h * ratio), W)
+        new_h = int(new_w / ratio)
+        src = src.resize((new_w, new_h), Image.LANCZOS)
+        bg.paste(src, ((W-new_w)//2, H-new_h-30))
+    out_dir = os.path.dirname(source_path) if source_path else "/tmp/creative_temp"
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"composite_{style}.png")
+    bg.save(out_path, "PNG", quality=95)
     return out_path

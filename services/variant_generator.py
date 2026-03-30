@@ -14,18 +14,13 @@ async def generate_variants(plan: CreativePlan,
                             source_image_path: str = None,
                             output_dir: str = "/tmp/creative_outputs",
                             ad_text: str = "") -> list[str]:
-    """
-    Если есть фото — трансформирует через DALL-E.
-    Если нет фото — генерирует сцену из текста.
-    Потом рендерит текстовые слои поверх.
-    """
     os.makedirs(output_dir, exist_ok=True)
 
-    # Генерируем фоны для всех 3 стилей параллельно
     if source_image_path and os.path.exists(source_image_path):
-        logger.info("Using source photo with DALL-E transform")
+        logger.info("Using compositing with source photo")
         transform_tasks = [
-            transform_image(source_image_path, style)
+            transform_image(source_image_path, style,
+                          ad_text=ad_text)
             for style in STYLES
         ]
     else:
@@ -37,7 +32,6 @@ async def generate_variants(plan: CreativePlan,
 
     transformed_paths = await asyncio.gather(*transform_tasks, return_exceptions=True)
 
-    # Рендерим текст поверх
     render_tasks = []
     output_paths = []
 
@@ -47,9 +41,8 @@ async def generate_variants(plan: CreativePlan,
         out_path = os.path.join(output_dir, f"banner_{style}.png")
         output_paths.append(out_path)
 
-        # Если трансформация упала — передаём None (будет градиент)
         bg_path = transformed_path if isinstance(transformed_path, str) else None
-        logger.info(f"Rendering {style} with bg: {bg_path}")
+        logger.info(f"Rendering {style}, bg: {bg_path}")
 
         render_tasks.append(
             asyncio.to_thread(render_banner, variant, bg_path, out_path)
