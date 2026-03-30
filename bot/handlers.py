@@ -2,7 +2,7 @@ import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -43,13 +43,12 @@ BRAND_DESCRIPTIONS = {
 
 
 def brand_style_keyboard():
-    buttons = []
-    for key, label in BRAND_STYLES.items():
-        buttons.append([InlineKeyboardButton(
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
             text=f"{label} — {BRAND_DESCRIPTIONS[key]}",
             callback_data=f"brand_{key}"
-        )])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+        )] for key, label in BRAND_STYLES.items()
+    ])
 
 
 def main_keyboard():
@@ -65,8 +64,7 @@ def main_keyboard():
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
-        "👋 Привет! Я создаю рекламные креативы.\n\n"
-        "Сначала выбери стиль своего бренда:",
+        "👋 Привет! Я создаю рекламные креативы.\n\nВыбери стиль бренда:",
         reply_markup=brand_style_keyboard()
     )
     await state.set_state(CreativeFlow.choosing_brand_style)
@@ -79,11 +77,7 @@ async def handle_brand_choice(callback: CallbackQuery, state: FSMContext):
     await state.update_data(brand_style=brand)
     await callback.answer()
     await callback.message.edit_text(
-        f"Отлично! Стиль: {label}\n\n"
-        f"Теперь отправь мне:\n"
-        f"📸 <b>Фото</b> товара или услуги\n"
-        f"или\n"
-        f"💬 <b>Текст</b> с описанием",
+        f"Стиль: {label}\n\nОтправь:\n📸 <b>Фото</b> товара\nили\n💬 <b>Текст</b> с описанием",
         parse_mode="HTML"
     )
     await state.set_state(CreativeFlow.waiting_for_photo_or_prompt)
@@ -92,10 +86,7 @@ async def handle_brand_choice(callback: CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "change_brand")
 async def change_brand(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await callback.message.answer(
-        "Выбери новый стиль бренда:",
-        reply_markup=brand_style_keyboard()
-    )
+    await callback.message.answer("Выбери новый стиль:", reply_markup=brand_style_keyboard())
     await state.set_state(CreativeFlow.choosing_brand_style)
 
 
@@ -106,10 +97,29 @@ async def handle_photo(message: Message, state: FSMContext):
     os.makedirs("/tmp/creative_temp", exist_ok=True)
     image_path = f"/tmp/creative_temp/{message.from_user.id}_source.jpg"
     await bot.download_file(file.file_path, image_path)
-    await state.update_data(image_path=image_path)
-    await message.answer(
-        "✅ Фото получил!\n\n"
-        "Напиши рекламный текст — что продаём, цена, акции, выгоды:"
+    await state.update_data(image_path=image_path, replace_bg=False)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎨 Заменить фон через AI",
+            callback_data="bg_replace"
+        )],
+        [InlineKeyboardButton(
+            text="📸 Оставить моё фото как есть",
+            callback_data="bg_keep"
+        )],
+    ])
+    await message.answer("✅ Фото получил!\n\nЧто делаем с фоном?", reply_markup=kb)
+
+
+@dp.callback_query(F.data.in_({"bg_replace", "bg_keep"}))
+async def handle_bg_choice(callback: CallbackQuery, state: FSMContext):
+    replace_bg = callback.data == "bg_replace"
+    await state.update_data(replace_bg=replace_bg)
+    await callback.answer()
+    label = "🎨 Фон заменим через AI" if replace_bg else "📸 Фото оставим как есть"
+    await callback.message.edit_text(
+        f"{label}\n\nТеперь напиши рекламный текст — что продаём, цена, акции:"
     )
     await state.set_state(CreativeFlow.waiting_for_ad_text)
 
@@ -117,29 +127,27 @@ async def handle_photo(message: Message, state: FSMContext):
 @dp.message(CreativeFlow.waiting_for_photo_or_prompt, F.text)
 async def handle_prompt(message: Message, state: FSMContext):
     await state.update_data(image_path=None, ad_text=message.text)
-    await message.answer(
-        "✅ Принял!\n\n"
-        "Добавь подробности: цена, акции, выгоды (или отправь как есть):"
-    )
+    await message.answer("✅ Принял!\n\nДобавь подробности или отправь как есть:")
     await state.set_state(CreativeFlow.waiting_for_ad_text)
 
 
 @dp.message(CreativeFlow.waiting_for_ad_text, F.text)
 async def handle_ad_text(message: Message, state: FSMContext):
     data = await state.get_data()
-    image_path = data.get("image_path")
-    existing_text = data.get("ad_text", "")
-    ad_text = existing_text + "\n" + message.text if existing_text else message.text
+    existing = data.get("ad_text", "")
+    ad_text = existing + "\n" + message.text if existing else message.text
     await state.update_data(ad_text=ad_text)
-    await _generate_and_send(message, state, image_path, ad_text)
+    await _generate_and_send(message, state, data.get("image_path"), ad_text)
 
 
 async def _generate_and_send(message: Message, state: FSMContext,
                               image_path: str, ad_text: str):
-    status = await message.answer("⚡ Генерирую 3 варианта креатива...")
+    status = await message.answer("⚡ Начинаю генерацию — первый баннер придёт через ~30 сек...")
+
     try:
         data = await state.get_data()
         brand_style = data.get("brand_style", "universal")
+        replace_bg = data.get("replace_bg", False)
 
         plan = await build_creative_plan(ad_text, image_path)
         plan.brand_style = brand_style
@@ -148,30 +156,38 @@ async def _generate_and_send(message: Message, state: FSMContext,
         output_dir = f"/tmp/creative_outputs/{message.from_user.id}"
         os.makedirs(output_dir, exist_ok=True)
 
-        paths = await generate_variants(plan, image_path, output_dir, ad_text=ad_text)
+        sent_count = 0
 
-        try:
-            await status.delete()
-        except Exception:
-            pass
-
-        from aiogram.types import BufferedInputFile
-        labels = ["✨ Premium", "🎯 Conversion", "🤍 Minimal"]
-        sent = 0
-        for path, label in zip(paths, labels):
-            if os.path.exists(path):
+        async def send_banner(path: str, label: str):
+            nonlocal sent_count
+            try:
                 with open(path, "rb") as f:
                     photo_data = f.read()
                 file_obj = BufferedInputFile(photo_data, filename="banner.png")
                 await message.answer_photo(file_obj, caption=label)
-                sent += 1
+                sent_count += 1
+                # Удаляем статус после первого баннера
+                if sent_count == 1:
+                    try:
+                        await status.delete()
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"Failed to send banner: {e}")
 
-        if sent == 0:
-            await message.answer("⚠️ Не удалось создать баннеры. Попробуй ещё раз.")
+        await generate_variants(
+            plan, image_path, output_dir,
+            ad_text=ad_text,
+            send_callback=send_banner,
+            replace_bg=replace_bg
+        )
+
+        if sent_count == 0:
+            await status.edit_text("⚠️ Не удалось создать баннеры. Попробуй ещё раз.")
             return
 
         await message.answer(
-            "Вот твои 3 варианта! Выбери или:",
+            f"Готово! Отправил {sent_count} варианта 👆",
             reply_markup=main_keyboard()
         )
 
