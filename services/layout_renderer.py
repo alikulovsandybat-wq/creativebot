@@ -1,19 +1,48 @@
 import os
 import textwrap
+import urllib.request
+import logging
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from models.creative import CreativePlan
+
+logger = logging.getLogger(__name__)
 
 # ═══ РАЗМЕР CANVAS ═══
 CANVAS_W = 1080
 CANVAS_H = 1920
+
+# ═══ АВТОСКАЧИВАНИЕ ШРИФТОВ ═══
+FONT_DOWNLOAD_DIR = "/tmp/creative_fonts"
+FONT_URLS = {
+    "bold.ttf": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf",
+    "semibold.ttf": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf",
+    "regular.ttf": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+    "light.ttf": "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+}
+
+def _ensure_fonts():
+    """Скачивает шрифты если их нет нигде."""
+    os.makedirs(FONT_DOWNLOAD_DIR, exist_ok=True)
+    for filename, url in FONT_URLS.items():
+        path = os.path.join(FONT_DOWNLOAD_DIR, filename)
+        if not os.path.exists(path):
+            try:
+                logger.info(f"Downloading font: {filename}")
+                urllib.request.urlretrieve(url, path)
+                logger.info(f"Font downloaded: {filename} ✅")
+            except Exception as e:
+                logger.warning(f"Font download failed {filename}: {e}")
+
+# Скачиваем при импорте модуля
+_ensure_fonts()
 
 # ═══ ПОИСК ШРИФТОВ ═══
 def _find_fonts_dir():
     """Ищет папку со шрифтами во всех возможных местах."""
     base = os.path.dirname(__file__)
     candidates = [
-        # Скачанные при старте
-        "/tmp/creative_fonts",
+        # Первым — наша папка со скачанными шрифтами
+        FONT_DOWNLOAD_DIR,
         # Из репозитория
         os.path.join(base, "fonts_all", "fonts"),
         os.path.join(base, "fonts_all"),
@@ -25,14 +54,12 @@ def _find_fonts_dir():
     ]
     for path in candidates:
         if path and os.path.isdir(path):
-            # Проверяем что внутри есть хоть что-то полезное
             for sub in ["universal", "bold", "delicate", "cozy", "premium"]:
                 if os.path.isdir(os.path.join(path, sub)):
                     return os.path.abspath(path)
-            # Или прямо в папке лежат ttf файлы
             if any(f.endswith(".ttf") for f in os.listdir(path)):
                 return os.path.abspath(path)
-    return ""
+    return FONT_DOWNLOAD_DIR  # всегда возвращаем download dir как fallback
 
 
 FONTS_DIR = _find_fonts_dir()

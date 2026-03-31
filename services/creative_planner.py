@@ -34,6 +34,11 @@ NICHE_BACKGROUNDS = {
         "B": "Dynamic automotive background. Silver metallic to cool blue-grey gradient, high-tech showroom. TOP 40%: deep metallic dark zone for bold white title. CENTER-BOTTOM: polished reflective floor, mirror-like surface. Geometric light lines, technological grid, cool blue accent light. Photorealistic, 8k, Canon EOS R5, f/8. NO car, NO text, NO people, NO logos. Vertical 9:16.",
         "C": "Futuristic automotive background. Deep navy blue fading to electric teal, futuristic mood. LEFT 40%: darkest navy zone for bright text. RIGHT: lighter teal gradient, dynamic space. Abstract speed lines, light trails, carbon fiber texture hints. Photorealistic, 8k, Canon EOS R5, f/5.6. NO car, NO text, NO people, NO logos. Vertical 9:16.",
     },
+    "auto_parts": {
+        "A": "Photorealistic commercial auto parts warehouse background. Modern warehouse with high ceilings, large open roll-up doors showing city skyline and snow-capped mountains in distance. Wooden pallets in CENTER completely empty and clean, ready for product placement, with realistic contact shadows. White delivery truck parked with rear doors open in background. Bright daylight through warehouse opening, cinematic lighting, sharp details. TOP 30%: darker warehouse ceiling zone for white text overlay. BOTTOM 20%: concrete floor texture for CTA zone. 8k, Canon EOS R5, professional automotive photography. NO auto parts, NO products, NO text, NO people, NO logos. Vertical 9:16.",
+        "B": "Photorealistic modern auto parts warehouse background. Clean warehouse interior, high ceilings with industrial LED lighting. Large roll-up door open showing Almaty city modern architecture and Trans-Ili Alatau mountains with snow caps on horizon. Empty wooden pallets in CENTER-BOTTOM area with soft shadows. Cardboard boxes on metal shelves along walls in background. TOP 40%: dark warehouse ceiling for large bold title text. Bright daylight from outside, sharp cinematic details. 8k, Canon EOS R5. NO auto parts, NO products, NO text, NO people, NO logos. Vertical 9:16.",
+        "C": "Photorealistic premium auto parts delivery background. Modern clean warehouse LEFT SIDE darker zone for text overlay. RIGHT SIDE: large open roll-up warehouse door with panoramic view of city skyline and majestic snow-capped mountains. Empty wooden pallet on RIGHT with realistic ambient shadows, ready for product. Delivery truck partially visible in background. Bright cinematic daylight, sharp professional photography. 8k, Canon EOS R5, f/8. NO auto parts, NO products, NO text, NO people, NO logos. Vertical 9:16.",
+    },
     "food": {
         "A": "Warm food advertisement background. Cream beige and warm wheat gradient, cozy artisan aesthetic. TOP 30%: deeper warm brown tone for text. CENTER: clean warm surface, rustic wooden table feel. BOTTOM 20%: lighter cream with subtle linen cloth texture for CTA. Scattered flour dust, wheat ears corners, warm golden light. Photorealistic, 8k, Canon EOS R5, f/4. NO food, NO text, NO people, NO logos. Vertical 9:16.",
         "B": "Fresh food background. Soft mint green and fresh white gradient, clean healthy organic aesthetic. TOP 40%: deeper mint zone for large fresh title. CENTER-BOTTOM: clean white surface, minimal platform. Fresh herb leaves on far edges, soft morning light water droplets. Photorealistic, 8k, Canon EOS R5, f/5.6. NO food, NO text, NO people, NO logos. Vertical 9:16.",
@@ -116,7 +121,8 @@ NICHE_KEYWORDS = {
     "beauty": ["салон", "красот", "косметол", "массаж", "спа", "spa", "уход", "крем", "маска", "скраб", "ботокс", "эпиляц"],
     "perfume": ["парфюм", "духи", "аромат", "туалетн", "fragrance", "perfume"],
     "fashion": ["одежд", "платье", "костюм", "обувь", "сумк", "аксессуар", "мод", "бутик", "fashion"],
-    "auto": ["авто", "машин", "автомобил", "шин", "резин", "запчаст", "кузов", "двигател", "car", "auto"],
+    "auto_parts": ["запчаст", "бампер", "фар", "капот", "крыло", "стекл", "доставк запч", "склад авто", "палет", "запасн част"],
+    "auto": ["авто", "машин", "автомобил", "шин", "резин", "кузов", "двигател", "car", "auto"],
     "food": ["еда", "ресторан", "кафе", "доставк", "пицц", "суши", "бургер", "выпечк", "торт", "food"],
     "health": ["здоровь", "витамин", "бад", "supplement", "аптек", "таблетк", "похуден"],
     "home": ["мебел", "декор", "интерьер", "диван", "стол", "кухн", "ремонт", "дом", "квартир"],
@@ -175,6 +181,46 @@ SYSTEM_PROMPT = """Ты — топовый арт-директор реклам�
   "badge": "...",
   "cta": "..."
 }"""
+
+
+async def _analyze_product_color(image_path: str) -> str:
+    """Анализирует доминирующий цвет продукта для подбора контрастного фона."""
+    try:
+        with open(image_path, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            max_tokens=20,
+            messages=[{"role": "user", "content": [
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/jpeg;base64,{image_data}", "detail": "low"}},
+                {"type": "text",
+                 "text": "Is the main product in this image predominantly DARK or LIGHT in color? Answer only one word: DARK or LIGHT."}
+            ]}]
+        )
+        result = response.choices[0].message.content.strip().upper()
+        return "DARK" if "DARK" in result else "LIGHT"
+    except Exception:
+        return "UNKNOWN"
+
+
+def _adjust_prompt_for_contrast(prompt: str, product_tone: str) -> str:
+    """Корректирует промпт фона для контраста с продуктом."""
+    if product_tone == "DARK":
+        # Тёмный продукт → светлый фон
+        prompt = prompt.replace("dark charcoal", "light silver grey")
+        prompt = prompt.replace("deep slate grey", "soft warm white")
+        prompt = prompt.replace("deep navy", "soft sky blue")
+        prompt = prompt.replace("deep teal", "light aqua")
+        prompt = prompt.replace("deep mocha", "warm cream")
+        prompt += " IMPORTANT: Use LIGHT and BRIGHT background tones to contrast with dark product."
+    elif product_tone == "LIGHT":
+        # Светлый продукт → тёмный/нейтральный фон
+        prompt = prompt.replace("warm cream white", "warm medium grey")
+        prompt = prompt.replace("soft ivory", "warm taupe")
+        prompt = prompt.replace("pure white", "soft warm grey")
+        prompt += " IMPORTANT: Use MEDIUM or DARKER background tones to contrast with light product."
+    return prompt
 
 
 async def build_creative_plan(ad_text: str,
@@ -247,6 +293,14 @@ async def build_creative_plan(ad_text: str,
     niche = detect_niche(ad_text)
     bg_prompt = get_background_prompt(niche, layout)
     logger.info(f"Detected niche: {niche}, layout: {layout}")
+
+    # Анализируем цвет продукта если есть фото → подбираем контрастный фон
+    if image_path:
+        product_tone = await _analyze_product_color(image_path)
+        logger.info(f"Product tone: {product_tone}")
+        bg_prompt = _adjust_prompt_for_contrast(bg_prompt, product_tone)
+    else:
+        product_tone = "UNKNOWN"
 
     plan = CreativePlan(
         headline=data.get("headline", ""),
