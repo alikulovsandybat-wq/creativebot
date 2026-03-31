@@ -116,7 +116,80 @@ NICHE_BACKGROUNDS = {
     },
 }
 
-# ═══ ОПРЕДЕЛЕНИЕ НИШИ ═══
+# ═══ ПРОМПТЫ ДЛЯ PHOTOROOM ═══
+# Атмосферные промпты — Photoroom сам вырезает продукт и вписывает в сцену
+# Не нужно TOP/CENTER/BOTTOM — Photoroom управляет композицией сам
+
+PHOTOROOM_BACKGROUNDS = {
+    "auto": {
+        "A": "Premium car showroom interior, dramatic spotlights from above, dark polished concrete floor with subtle reflections, deep charcoal and steel tones, cinematic automotive atmosphere, moody professional lighting",
+        "B": "Nighttime city highway with wet asphalt reflections, dramatic neon lights, cinematic wide angle, speed atmosphere, dark blue and purple tones, premium automotive lifestyle",
+        "C": "Mountain road at golden hour, dramatic rocky landscape, warm sunset light, cinematic depth of field, aspirational driving scene, epic automotive photography",
+    },
+    "auto_parts": {
+        "A": "Modern clean automotive warehouse, wooden pallets, industrial LED ceiling lights, concrete floor, Almaty city skyline visible through large open doors, Trans-Ili Alatau mountains in background, professional commercial photography",
+        "B": "Professional auto parts workshop, clean organized shelving, bright workshop lighting, white delivery van in background, premium industrial atmosphere",
+        "C": "Open warehouse with panoramic mountain view, wooden pallets ready for products, cinematic daylight through large doors, professional logistics atmosphere",
+    },
+    "tech": {
+        "A": "Minimalist dark tech studio, soft blue LED accent lighting, dark matte surface, premium Apple-style product photography, clean modern atmosphere, deep space grey tones",
+        "B": "Futuristic technology lab, electric blue neon accents, dark carbon fiber textures, dynamic light trails, premium gadget lifestyle photography",
+        "C": "Clean white Scandinavian tech workspace, soft natural diffused light, minimal desk setup, premium product photography, fresh modern atmosphere",
+    },
+    "home": {
+        "A": "Warm Scandinavian interior, soft natural window light, light oak wooden floor, cream white walls, cozy minimal home decor atmosphere, lifestyle product photography",
+        "B": "Luxury Mediterranean interior, warm terracotta tones, arched windows with soft light, polished marble floor, premium home lifestyle photography",
+        "C": "Modern coastal living room, dusty blue and warm linen tones, natural rattan textures, bright airy atmosphere, contemporary interior photography",
+    },
+    "food": {
+        "A": "Rustic wooden kitchen table, warm golden sunlight from window, scattered flour and wheat, cozy artisan bakery atmosphere, warm cream and brown tones, food lifestyle photography",
+        "B": "Fresh modern kitchen counter, bright natural light, clean white marble surface, fresh herbs and ingredients, healthy organic food atmosphere",
+        "C": "Upscale restaurant table setting, warm candlelight ambiance, dark forest green and gold tones, elegant fine dining atmosphere, premium food photography",
+    },
+    "health": {
+        "A": "Clean modern pharmacy interior, bright white and soft blue tones, organized shelving, clinical professional atmosphere, health and wellness product photography",
+        "B": "Natural wellness spa setting, sage green and warm cream tones, natural stone surfaces, fresh botanical elements, organic health lifestyle photography",
+        "C": "Modern medical spa interior, deep teal and aqua tones, clean minimal surfaces, professional healthcare atmosphere, premium wellness photography",
+    },
+    "medical": {
+        "A": "Modern dental clinic interior, bright clinical white and soft aqua tones, clean professional atmosphere, welcoming healthcare environment, medical product photography",
+        "B": "Contemporary medical office, soft blue and white tones, clean polished surfaces, professional clinical atmosphere, healthcare lifestyle photography",
+        "C": "Premium health clinic lobby, sophisticated teal and mint tones, modern architectural details, professional medical atmosphere",
+    },
+    "fashion": {
+        "A": "Luxury fashion boutique interior, warm ivory and soft gold tones, elegant marble floors, soft studio lighting, premium fashion product photography",
+        "B": "High-key editorial fashion studio, pure white seamless background, professional strobe lighting, clean minimal fashion photography atmosphere",
+        "C": "Artistic fashion atelier, dusty rose and terracotta warm tones, soft golden hour light, creative editorial fashion atmosphere",
+    },
+    "beauty": {
+        "A": "Elegant beauty salon interior, soft sage green and cream tones, delicate botanical elements, fresh natural light, premium skincare product photography",
+        "B": "Luxury spa setting, soft blush pink and warm ivory tones, marble surfaces, delicate petals, premium beauty lifestyle photography",
+        "C": "Fresh natural beauty studio, aqua blue and mint tones, water droplet details, clean airy atmosphere, skincare product photography",
+    },
+    "perfume": {
+        "A": "Luxury fragrance atelier, warm amber and cognac brown tones, golden dramatic lighting, dried botanicals, gold dust particles, premium perfume photography",
+        "B": "Ethereal fragrance studio, soft champagne gold and ivory tones, misty atmosphere, floating petals, golden bokeh, aspirational perfume photography",
+        "C": "Romantic perfume scene, deep violet purple and warm rose gold tones, scattered rose petals, moody atmospheric lighting, luxury fragrance photography",
+    },
+    "flowers": {
+        "A": "Romantic flower shop interior, soft blush pink and warm ivory tones, dreamy floral atmosphere, golden bokeh lights, fresh spring flower photography",
+        "B": "Luxury floral boutique, deep emerald green and champagne gold tones, elegant gift atmosphere, sparkle lights, premium flower photography",
+        "C": "Airy spring garden setting, white and soft lavender tones, morning dew, delicate wisteria, fresh floral lifestyle photography",
+    },
+    "kids": {
+        "A": "Cheerful nursery interior, soft sky blue and warm white tones, playful cozy atmosphere, gentle sunlight, children product photography",
+        "B": "Playful children's room, warm peach and mint green tones, gentle rainbow details, cheerful bright atmosphere, kids lifestyle photography",
+        "C": "Magical fairytale nursery, soft lilac and warm cream tones, floating stars, dreamy soft lighting, children's product photography",
+    },
+}
+
+
+def get_photoroom_prompt(niche: str, layout: str) -> str:
+    """Возвращает атмосферный промпт для Photoroom."""
+    niche_data = PHOTOROOM_BACKGROUNDS.get(niche, PHOTOROOM_BACKGROUNDS.get("home", {}))
+    return niche_data.get(layout, niche_data.get("A", "Professional product photography, clean studio, soft natural light"))
+
+
 NICHE_KEYWORDS = {
     "beauty": ["салон", "красот", "косметол", "массаж", "спа", "spa", "уход", "крем", "маска", "скраб", "ботокс", "эпиляц"],
     "perfume": ["парфюм", "духи", "аромат", "туалетн", "fragrance", "perfume"],
@@ -289,9 +362,10 @@ async def build_creative_plan(ad_text: str,
             "cta": "Напишите нам",
         }
 
-    # Определяем нишу и берём промпт фона
+    # Определяем нишу и берём промпты
     niche = detect_niche(ad_text)
     bg_prompt = get_background_prompt(niche, layout)
+    photoroom_prompt = get_photoroom_prompt(niche, layout)
     logger.info(f"Detected niche: {niche}, layout: {layout}")
 
     # Анализируем цвет продукта если есть фото → подбираем контрастный фон
@@ -314,6 +388,7 @@ async def build_creative_plan(ad_text: str,
 
     # Один промпт фона вместо трёх — по выбранному layout
     plan.bg_prompt = bg_prompt
+    plan.photoroom_prompt = photoroom_prompt
     plan.niche = niche
     plan.layout = layout
 

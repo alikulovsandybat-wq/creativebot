@@ -48,6 +48,7 @@ async def generate_variants(plan: CreativePlan,
     brand_style = getattr(plan, "brand_style", "universal")
     theme_style = BRAND_TO_STYLE.get(brand_style, "minimal")
     bg_prompt = getattr(plan, "bg_prompt", "")
+    photoroom_prompt = getattr(plan, "photoroom_prompt", bg_prompt)
     niche = getattr(plan, "niche", "universal")
 
     logger.info(f"generate_variants: layout={layout}, canvas={canvas_size}, niche={niche}")
@@ -77,8 +78,10 @@ async def generate_variants(plan: CreativePlan,
             # Компонуем через transform_image с умным выбором инструмента
             from services.image_transformer import transform_image
             comp_path = await transform_image(
-                source_image_path, bg_prompt,
-                layout=layout, niche=niche
+                source_image_path,
+                photoroom_prompt if niche in ["auto","auto_parts","tech","home","food","health","medical","fashion","beauty","perfume","flowers","kids"] else bg_prompt,
+                layout=layout,
+                niche=niche
             )
 
             if canvas_size != DEFAULT_CANVAS:
