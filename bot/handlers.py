@@ -230,7 +230,7 @@ async def _generate_and_send(message: Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"Failed to send banner: {e}")
 
-        await generate_variants(
+        result = await generate_variants(
             plan, image_path, output_dir,
             ad_text=ad_text,
             send_callback=send_banner,
@@ -242,42 +242,34 @@ async def _generate_and_send(message: Message, state: FSMContext):
             await status.edit_text("⚠️ Не удалось создать баннер. Попробуй ещё раз.")
             return
 
-        # Строим URL редактора
-        editor_url = None
-        try:
-            import urllib.parse
-            # Ищем сгенерированные файлы
-            bg_file = os.path.join(output_dir, f"bg_{layout}.png")
-            comp_file = os.path.join(output_dir, f"composite_{layout}.png")
-            prod_file = os.path.join(output_dir, f"bg_{layout}.png")  # фон без продукта
+        # Отправляем фон и продукт для редактора
+        bg_path = result.get("bg")
+        prod_path = result.get("product")
 
-            params = {
-                "fmt": "square" if canvas_size == (1080, 1080) else "stories",
-                "headline": plan.headline or "",
-                "sub": plan.subheadline or "",
-                "price": plan.price or "",
-                "badge": plan.badge or "",
-                "cta": plan.cta or "",
-                "bullets": "|".join(plan.bullets or []),
-            }
-            # Добавляем фон если файл существует
-            if os.path.exists(bg_file):
-                bg_fname = os.path.basename(bg_file)
-                params["bg"] = f"{EDITOR_BASE_URL}/files/{message.from_user.id}/{bg_fname}"
-            # Добавляем продукт если есть фото пользователя
-            if image_path and os.path.exists(image_path):
-                prod_fname = os.path.basename(image_path)
-                params["product"] = f"{EDITOR_BASE_URL}/files/{message.from_user.id}/{prod_fname}"
+        editor_files_text = (
+            f"✏️ Хочешь отредактировать вручную?\n\n"
+            f"1. Открой редактор: {EDITOR_BASE_URL}/editor\n"
+            f"2. Загрузи фото ниже через кнопки в редакторе"
+        )
 
-            query = urllib.parse.urlencode(params)
-            editor_url = f"{EDITOR_BASE_URL}/editor?{query}"
-        except Exception as e:
-            logger.warning(f"Editor URL build failed: {e}")
+        if bg_path and os.path.exists(bg_path):
+            with open(bg_path, "rb") as f:
+                await message.answer_photo(
+                    BufferedInputFile(f.read(), filename="bg.png"),
+                    caption="🖼 Фон — загрузи в редактор через кнопку «Загрузить другой фон»"
+                )
+
+        if prod_path and os.path.exists(prod_path):
+            with open(prod_path, "rb") as f:
+                await message.answer_photo(
+                    BufferedInputFile(f.read(), filename="product.png"),
+                    caption="📦 Продукт — загрузи в редактор через кнопку «Загрузить другое фото продукта»"
+                )
 
         fmt_label = "⬛ Квадрат" if canvas_size == (1080, 1080) else "📱 Stories"
         await message.answer(
             f"Готово! 🎉\nФормат: {fmt_label} · Layout {layout}",
-            reply_markup=main_keyboard(editor_url)
+            reply_markup=main_keyboard(f"{EDITOR_BASE_URL}/editor")
         )
 
     except Exception as e:
