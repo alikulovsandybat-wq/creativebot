@@ -4,125 +4,167 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Редактор баннера</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;600;700;800&family=Oswald:wght@300;400;600;700&family=Pacifico&family=Russo+One&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0d0d12;--surface:#16161f;--surface2:#1e1e2a;--border:#28283a;
-  --accent:#7c6aff;--accent2:#ff6ab0;--text:#eeeef8;--text2:#7777aa;
-}
-body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
-header{height:52px;min-height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px}
+:root{--bg:#0d0d12;--s:#16161f;--s2:#1e1e2a;--br:#28283a;--ac:#7c6aff;--ac2:#ff6ab0;--tx:#eeeef8;--tx2:#7777aa}
+body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{height:52px;min-height:52px;background:var(--s);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px}
 .logo{font-size:14px;font-weight:800;letter-spacing:-.3px}
-.logo em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hbtns{display:flex;gap:6px}
+.logo em{font-style:normal;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hb{display:flex;gap:6px}
 .btn{padding:7px 14px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
-.btn-primary{background:linear-gradient(135deg,var(--accent),#9b6aff);color:#fff}
-.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
-.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
-.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
-.workspace{display:flex;flex:1;overflow:hidden}
-.sidebar{width:260px;min-width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sb-scroll{flex:1;overflow-y:auto}
-.sb-scroll::-webkit-scrollbar{width:3px}
-.sb-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.panel{border-bottom:1px solid var(--border)}
-.ph{padding:10px 14px;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
-.ph:hover{color:var(--text)}
-.arr{transition:transform .2s;font-size:9px}
-.panel.closed .arr{transform:rotate(-90deg)}
-.panel.closed .pb{display:none}
+.bp{background:linear-gradient(135deg,var(--ac),#9b6aff);color:#fff}
+.bp:hover{opacity:.85;transform:translateY(-1px)}
+.bg{background:var(--s2);color:var(--tx2);border:1px solid var(--br)}
+.bg:hover{color:var(--tx);border-color:var(--ac)}
+.ws{display:flex;flex:1;overflow:hidden}
+.sb{width:268px;min-width:268px;background:var(--s);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden}
+.sbs{flex:1;overflow-y:auto}
+.sbs::-webkit-scrollbar{width:3px}
+.sbs::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.pn{border-bottom:1px solid var(--br)}
+.ph{padding:10px 14px;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.ph:hover{color:var(--tx)}
+.ar{transition:transform .2s;font-size:9px}
+.pn.cl .ar{transform:rotate(-90deg)}
+.pn.cl .pb{display:none}
 .pb{padding:2px 14px 14px}
-.layer{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);transition:all .12s;margin-bottom:2px;user-select:none}
-.layer:hover{background:var(--surface2);color:var(--text)}
-.layer.active{background:rgba(124,106,255,.15);color:var(--text);border:1px solid rgba(124,106,255,.3)}
-.layer-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.l-eye{font-size:11px;padding:2px 4px;border-radius:4px}
-.l-eye:hover{background:var(--border)}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.3px;text-transform:uppercase}
-input[type=text],input[type=number],textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 9px;outline:none;transition:border-color .15s;resize:none}
-input:focus,textarea:focus,select:focus{border-color:var(--accent)}
-select option{background:var(--surface2)}
+.lyr{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;color:var(--tx2);transition:all .12s;margin-bottom:2px;user-select:none}
+.lyr:hover{background:var(--s2);color:var(--tx)}
+.lyr.on{background:rgba(124,106,255,.15);color:var(--tx);border:1px solid rgba(124,106,255,.3)}
+.ln{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eye{font-size:11px;padding:2px 4px;border-radius:4px}
+.eye:hover{background:var(--br)}
+.fi{margin-bottom:12px}
+.fi label{display:block;font-size:10px;font-weight:700;color:var(--tx2);margin-bottom:5px;letter-spacing:.3px;text-transform:uppercase}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;color:var(--tx);font-family:inherit;font-size:12px;padding:7px 9px;outline:none;transition:border-color .15s;resize:none}
+input:focus,textarea:focus,select:focus{border-color:var(--ac)}
+select option{background:var(--s2)}
 textarea{min-height:52px;line-height:1.4}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
-.rrow{display:flex;align-items:center;gap:8px}
-.rval{min-width:38px;text-align:right;font-size:11px;font-weight:700;color:var(--accent)}
-input[type=color]{width:100%;height:34px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);cursor:pointer;padding:2px 4px}
-.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.tlabel{font-size:11px;color:var(--text2)}
+input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer}
+.rr{display:flex;align-items:center;gap:8px}
+.rv{min-width:38px;text-align:right;font-size:11px;font-weight:700;color:var(--ac)}
+input[type=color]{width:100%;height:34px;border:1px solid var(--br);border-radius:7px;background:var(--s2);cursor:pointer;padding:2px 4px}
+.tr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.tl{font-size:11px;color:var(--tx2)}
 .tog{position:relative;width:34px;height:18px}
 .tog input{opacity:0;width:0;height:0}
-.tog-sl{position:absolute;inset:0;background:var(--border);border-radius:9px;cursor:pointer;transition:.2s}
-.tog-sl::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-.tog input:checked+.tog-sl{background:var(--accent)}
-.tog input:checked+.tog-sl::before{transform:translateX(16px)}
-.canvas-area{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);overflow:auto;position:relative}
-.cwrap{position:relative;box-shadow:0 20px 80px rgba(0,0,0,.7);border-radius:3px;flex-shrink:0}
+.ts{position:absolute;inset:0;background:var(--br);border-radius:9px;cursor:pointer;transition:.2s}
+.ts::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.tog input:checked+.ts{background:var(--ac)}
+.tog input:checked+.ts::before{transform:translateX(16px)}
+
+/* FONT PREVIEW SELECT */
+.font-select{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;color:var(--tx);font-size:12px;padding:7px 9px;outline:none;cursor:pointer}
+.font-select:focus{border-color:var(--ac)}
+
+/* FONT PILLS */
+.font-pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.font-pill{padding:5px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s2);color:var(--tx2);font-size:11px;cursor:pointer;transition:all .12s}
+.font-pill:hover{border-color:var(--ac);color:var(--tx)}
+.font-pill.active{border-color:var(--ac);background:rgba(124,106,255,.15);color:var(--tx)}
+
+.ca{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);overflow:auto;position:relative}
+.cw{position:relative;box-shadow:0 20px 80px rgba(0,0,0,.7);border-radius:3px;flex-shrink:0}
 canvas{display:block;cursor:default}
-.sel-box{position:absolute;border:2px dashed var(--accent);border-radius:3px;pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(124,106,255,.2)}
-.sel-box.on{display:block}
-.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(22,22,31,.9);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;color:var(--text2);pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px)}
-.status{height:26px;min-height:26px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;gap:20px;padding:0 16px;font-size:10px;color:var(--text2)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 18px;font-size:12px;font-weight:700;color:var(--text);z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none}
+.sb2{position:absolute;border:2px dashed var(--ac);border-radius:3px;pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(124,106,255,.2)}
+.sb2.on{display:block}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(22,22,31,.92);border:1px solid var(--br);border-radius:20px;padding:6px 14px;font-size:11px;color:var(--tx2);pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px)}
+.st{height:26px;min-height:26px;background:var(--s);border-top:1px solid var(--br);display:flex;align-items:center;gap:20px;padding:0 16px;font-size:10px;color:var(--tx2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--s2);border:1px solid var(--br);border-radius:9px;padding:9px 18px;font-size:12px;font-weight:700;color:var(--tx);z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+
+/* UPLOAD ZONE */
+.upload-zone{border:1px dashed var(--br);border-radius:8px;padding:10px;text-align:center;cursor:pointer;color:var(--tx2);font-size:11px;transition:border-color .15s;margin-bottom:10px}
+.upload-zone:hover{border-color:var(--ac);color:var(--tx)}
+.upload-zone input{display:none}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">✦ <em>Редактор баннера</em></div>
-  <div class="hbtns">
-    <button class="btn btn-ghost" onclick="resetAll()">↩ Сброс</button>
-    <button class="btn btn-primary" onclick="downloadBanner()">⬇ Скачать PNG</button>
+  <div class="hb">
+    <button class="btn bg" onclick="resetAll()">↩ Сброс</button>
+    <button class="btn bp" onclick="downloadBanner()">⬇ Скачать PNG</button>
   </div>
 </header>
 
-<div class="workspace">
-  <div class="sidebar">
-    <div class="sb-scroll">
-      <div class="panel" id="p-layers">
-        <div class="ph" onclick="tp('layers')">Слои <span class="arr">▾</span></div>
+<div class="ws">
+  <div class="sb">
+    <div class="sbs">
+
+      <!-- СЛОИ -->
+      <div class="pn" id="p-layers">
+        <div class="ph" onclick="tp('layers')">Слои <span class="ar">▾</span></div>
         <div class="pb" id="layers-list"></div>
       </div>
-      <div class="panel" id="p-text">
-        <div class="ph" onclick="tp('text')">Текст <span class="arr">▾</span></div>
-        <div class="pb" id="text-body"><div style="color:var(--text2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div></div>
-      </div>
-      <div class="panel" id="p-prod">
-        <div class="ph" onclick="tp('prod')">Продукт <span class="arr">▾</span></div>
+
+      <!-- ШРИФТ БАННЕРА -->
+      <div class="pn" id="p-font">
+        <div class="ph" onclick="tp('font')">Шрифт баннера <span class="ar">▾</span></div>
         <div class="pb">
-          <div style="color:var(--text2);font-size:11px;margin-bottom:10px">Перетащи продукт прямо на баннере мышью</div>
-          <div class="field"><label>Размер</label><div class="rrow"><input type="range" id="ps" min="20" max="200" value="100" oninput="updP()"><span class="rval" id="ps-v">100%</span></div></div>
-          <div class="field"><label>Поворот</label><div class="rrow"><input type="range" id="pr" min="-180" max="180" value="0" oninput="updP()"><span class="rval" id="pr-v">0°</span></div></div>
-          <div class="g2" style="margin-bottom:12px">
-            <button class="btn btn-ghost" onclick="flip('h')" style="font-size:11px;padding:6px">↔ Гор.</button>
-            <button class="btn btn-ghost" onclick="flip('v')" style="font-size:11px;padding:6px">↕ Верт.</button>
+          <div class="fi"><label>Выбери шрифт для всего баннера</label>
+            <div class="font-pills" id="font-pills"></div>
           </div>
-          <div class="trow"><span class="tlabel">Тень продукта</span><label class="tog"><input type="checkbox" id="p-sh" checked onchange="render()"><span class="tog-sl"></span></label></div>
+          <div style="color:var(--tx2);font-size:10px">Или выбери шрифт для конкретного слоя в разделе «Текст»</div>
         </div>
       </div>
-      <div class="panel" id="p-bg">
-        <div class="ph" onclick="tp('bg')">Фон <span class="arr">▾</span></div>
+
+      <!-- ТЕКСТ -->
+      <div class="pn" id="p-text">
+        <div class="ph" onclick="tp('text')">Текст <span class="ar">▾</span></div>
+        <div class="pb" id="text-body"><div style="color:var(--tx2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div></div>
+      </div>
+
+      <!-- ПРОДУКТ -->
+      <div class="pn" id="p-prod">
+        <div class="ph" onclick="tp('prod')">Продукт <span class="ar">▾</span></div>
         <div class="pb">
-          <div class="field"><label>Яркость</label><div class="rrow"><input type="range" id="bb" min="0" max="200" value="100" oninput="updBg()"><span class="rval" id="bb-v">100</span></div></div>
-          <div class="field"><label>Контраст</label><div class="rrow"><input type="range" id="bc" min="0" max="200" value="100" oninput="updBg()"><span class="rval" id="bc-v">100</span></div></div>
-          <div class="field"><label>Затемнение</label><div class="rrow"><input type="range" id="bo" min="0" max="90" value="25" oninput="updBg()"><span class="rval" id="bo-v">25%</span></div></div>
+          <div class="upload-zone" onclick="document.getElementById('prod-upload').click()">
+            📦 Загрузить другое фото продукта
+            <input type="file" id="prod-upload" accept="image/*" onchange="loadProdFile(this)">
+          </div>
+          <div style="color:var(--tx2);font-size:11px;margin-bottom:10px">Перетащи продукт прямо на баннере</div>
+          <div class="fi"><label>Размер</label><div class="rr"><input type="range" id="ps" min="20" max="200" value="100" oninput="updP()"><span class="rv" id="ps-v">100%</span></div></div>
+          <div class="fi"><label>Поворот</label><div class="rr"><input type="range" id="pr" min="-180" max="180" value="0" oninput="updP()"><span class="rv" id="pr-v">0°</span></div></div>
+          <div class="g2" style="margin-bottom:12px">
+            <button class="btn bg" onclick="flip('h')" style="font-size:11px;padding:6px">↔ Гор.</button>
+            <button class="btn bg" onclick="flip('v')" style="font-size:11px;padding:6px">↕ Верт.</button>
+          </div>
+          <div class="tr"><span class="tl">Тень продукта</span><label class="tog"><input type="checkbox" id="p-sh" checked onchange="render()"><span class="ts"></span></label></div>
         </div>
       </div>
+
+      <!-- ФОН -->
+      <div class="pn" id="p-bg">
+        <div class="ph" onclick="tp('bg')">Фон <span class="ar">▾</span></div>
+        <div class="pb">
+          <div class="upload-zone" onclick="document.getElementById('bg-upload').click()">
+            🖼 Загрузить другой фон
+            <input type="file" id="bg-upload" accept="image/*" onchange="loadBgFile(this)">
+          </div>
+          <div class="fi"><label>Яркость</label><div class="rr"><input type="range" id="bb" min="0" max="200" value="100" oninput="updBg()"><span class="rv" id="bb-v">100</span></div></div>
+          <div class="fi"><label>Контраст</label><div class="rr"><input type="range" id="bc" min="0" max="200" value="100" oninput="updBg()"><span class="rv" id="bc-v">100</span></div></div>
+          <div class="fi"><label>Затемнение</label><div class="rr"><input type="range" id="bo" min="0" max="90" value="25" oninput="updBg()"><span class="rv" id="bo-v">25%</span></div></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <div class="canvas-area" id="carea">
-    <div class="cwrap" id="cwrap">
+  <div class="ca" id="carea">
+    <div class="cw" id="cwrap">
       <canvas id="c"></canvas>
-      <div class="sel-box" id="sbox"></div>
+      <div class="sb2" id="sbox"></div>
     </div>
     <div class="hint">💡 Кликни на элемент · Тащи чтобы переместить · Продукт тоже перетаскивается</div>
   </div>
 </div>
 
-<div class="status">
+<div class="st">
   <span id="st-sz">—</span>
   <span id="st-sel">Ничего не выбрано</span>
   <span id="st-xy">—</span>
@@ -130,12 +172,56 @@ canvas{display:block;cursor:default}
 <div class="toast" id="toast"></div>
 
 <script>
-const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-const S={W:540,H:960,bgImg:null,prodImg:null,bg:{b:100,c:100,o:25},prod:{x:0,y:0,sc:100,rot:0,fh:false,fv:false},layers:[],sel:null,drag:false,dMode:null,dStart:{mx:0,my:0,ox:0,oy:0}};
+// ══════════════════════════════
+// FONTS
+// ══════════════════════════════
+const FONTS = [
+  {id:'Manrope',    label:'Manrope',          css:"'Manrope', sans-serif"},
+  {id:'Montserrat', label:'Montserrat',        css:"'Montserrat', sans-serif"},
+  {id:'Oswald',     label:'Oswald',            css:"'Oswald', sans-serif"},
+  {id:'Playfair',   label:'Playfair Display',  css:"'Playfair Display', serif"},
+  {id:'Pacifico',   label:'Pacifico',          css:"'Pacifico', cursive"},
+  {id:'Russo',      label:'Russo One',         css:"'Russo One', sans-serif"},
+];
+let globalFont = FONTS[0]; // текущий шрифт всего баннера
+
+function buildFontPills() {
+  const el = document.getElementById('font-pills');
+  el.innerHTML = '';
+  FONTS.forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'font-pill' + (f.id === globalFont.id ? ' active' : '');
+    d.textContent = f.label;
+    d.style.fontFamily = f.css;
+    d.onclick = () => { globalFont = f; buildFontPills(); applyGlobalFont(); };
+    el.appendChild(d);
+  });
+}
+
+function applyGlobalFont() {
+  S.layers.forEach(l => { l.fontFamily = globalFont.css; });
+  render();
+  // Обновляем панель текста если открыта
+  if (S.sel && S.sel !== 'product') buildTextPanel();
+}
+
+// ══════════════════════════════
+// STATE
+// ══════════════════════════════
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+const S = {
+  W:540, H:960, bgImg:null, prodImg:null,
+  bg:{b:100,c:100,o:25},
+  prod:{x:0,y:0,sc:100,rot:0,fh:false,fv:false,_cx:0,_cy:0,_pw:0,_ph:0},
+  layers:[], sel:null, drag:false, dMode:null,
+  dStart:{mx:0,my:0,ox:0,oy:0}
+};
 
 function gsc(){const r=canvas.getBoundingClientRect();return{sx:S.W/r.width,sy:S.H/r.height}}
 
-// ── INIT ──
+// ══════════════════════════════
+// LOAD
+// ══════════════════════════════
 function loadDemo(){
   S.W=540;S.H=960;canvas.width=S.W;canvas.height=S.H;
   document.getElementById('st-sz').textContent='1080×1920px';
@@ -148,40 +234,77 @@ function loadDemo(){
     mkTxt('b2','Буллет 3','— Сертификат на выбор',54,732,20,'normal','#dddddd'),
     mkCTA('Получить каталог'),
   ];
-  buildLayers();render();
+  buildFontPills(); buildLayers(); render();
 }
 
 function loadFromParams(){
-  const p=new URLSearchParams(location.search);
-  const fmt=p.get('fmt')||'stories';
-  S.W=fmt==='square'?720:540;S.H=fmt==='square'?720:960;
-  canvas.width=S.W;canvas.height=S.H;
+  const p = new URLSearchParams(location.search);
+  const fmt = p.get('fmt') || 'stories';
+  S.W = fmt==='square' ? 720 : 540;
+  S.H = fmt==='square' ? 720 : 960;
+  canvas.width=S.W; canvas.height=S.H;
   document.getElementById('st-sz').textContent=`${S.W*2}×${S.H*2}px`;
+
   S.layers=[];
-  const g=k=>p.get(k)?decodeURIComponent(p.get(k)):null;
-  if(g('badge'))S.layers.push(mkBadge(g('badge')));
+  const g = k => p.get(k) ? decodeURIComponent(p.get(k)) : null;
+  if(g('badge'))  S.layers.push(mkBadge(g('badge')));
   if(g('headline'))S.layers.push(mkTxt('hl','Заголовок',g('headline'),54,60,54,'bold','#ffffff'));
-  if(g('sub'))S.layers.push(mkTxt('sub','Подзаголовок',g('sub'),54,200,22,'normal','#eeeeee'));
-  if(g('price'))S.layers.push(mkTxt('price','Цена',g('price'),54,260,42,'bold','#ffd700'));
+  if(g('sub'))     S.layers.push(mkTxt('sub','Подзаголовок',g('sub'),54,200,22,'normal','#eeeeee'));
+  if(g('price'))   S.layers.push(mkTxt('price','Цена',g('price'),54,260,42,'bold','#ffd700'));
   if(g('bullets')){
-    let by=fmt==='square'?460:640;
+    let by = fmt==='square' ? 460 : 640;
     g('bullets').split('|').forEach((b,i)=>{
-      S.layers.push(mkTxt(`b${i}`,`Буллет ${i+1}`,b,54,by,20,'normal','#dddddd'));by+=36;
+      S.layers.push(mkTxt(`b${i}`,`Буллет ${i+1}`,b,54,by,20,'normal','#dddddd'));
+      by+=36;
     });
   }
-  if(g('cta'))S.layers.push(mkCTA(g('cta')));
-  const bgU=g('bg'),prU=g('product');
-  if(bgU)loadImg(bgU,img=>{S.bgImg=img;render();});
-  if(prU)loadImg(prU,img=>{S.prodImg=img;render();});
-  buildLayers();render();
+  if(g('cta')) S.layers.push(mkCTA(g('cta')));
+
+  // Загружаем фон и продукт из URL
+  const bgUrl = g('bg'), prodUrl = g('product');
+  if(bgUrl)  loadImg(bgUrl,  img=>{S.bgImg=img;   render();});
+  if(prodUrl)loadImg(prodUrl,img=>{S.prodImg=img; render();});
+
+  buildFontPills(); buildLayers(); render();
 }
 
-function mkTxt(id,name,text,x,y,fs,fw,color){return{id,name,type:'text',text,x,y,fontSize:fs,fontWeight:fw,color,visible:true,shadow:true,_b:null}}
-function mkBadge(text){return{id:'badge',name:'Бейдж',type:'badge',text,x:54,y:30,fontSize:15,fontWeight:'800',color:'#fff',bgColor:'#dc2626',visible:true,_b:null}}
-function mkCTA(text){return{id:'cta',name:'Кнопка CTA',type:'cta',text,x:S.W/2,y:S.H-75,fontSize:21,fontWeight:'700',color:'#111',bgColor:'#ffffff',visible:true,_b:null}}
-function loadImg(src,cb){const i=new Image();i.crossOrigin='anonymous';i.onload=()=>cb(i);i.onerror=()=>{};i.src=src;}
+function mkTxt(id,name,text,x,y,fs,fw,color){
+  return{id,name,type:'text',text,x,y,fontSize:fs,fontWeight:fw,color,fontFamily:globalFont.css,visible:true,shadow:true,_b:null};
+}
+function mkBadge(text){
+  return{id:'badge',name:'Бейдж',type:'badge',text,x:54,y:30,fontSize:15,fontWeight:'800',color:'#fff',bgColor:'#dc2626',fontFamily:globalFont.css,visible:true,_b:null};
+}
+function mkCTA(text){
+  return{id:'cta',name:'Кнопка CTA',type:'cta',text,x:S.W/2,y:S.H-75,fontSize:21,fontWeight:'700',color:'#111',bgColor:'#ffffff',fontFamily:globalFont.css,visible:true,_b:null};
+}
 
-// ── RENDER ──
+function loadImg(src,cb){
+  const i=new Image();i.crossOrigin='anonymous';
+  i.onload=()=>cb(i);
+  i.onerror=()=>console.warn('img failed:',src);
+  i.src=src;
+}
+
+// ══════════════════════════════
+// FILE UPLOAD (ручная загрузка)
+// ══════════════════════════════
+function loadBgFile(input){
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{loadImg(e.target.result,img=>{S.bgImg=img;render();toast('Фон загружен ✅');});};
+  r.readAsDataURL(file);
+}
+
+function loadProdFile(input){
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{loadImg(e.target.result,img=>{S.prodImg=img;buildLayers();render();toast('Продукт загружен ✅');});};
+  r.readAsDataURL(file);
+}
+
+// ══════════════════════════════
+// RENDER
+// ══════════════════════════════
 function render(){
   ctx.clearRect(0,0,S.W,S.H);
   // BG
@@ -197,11 +320,15 @@ function render(){
     ctx.fillStyle=g;ctx.fillRect(0,0,S.W,S.H);
   }
   ctx.fillStyle=`rgba(0,0,0,${S.bg.o/100})`;ctx.fillRect(0,0,S.W,S.H);
-  // PRODUCT
-  if(S.prodImg)drawProd();
-  // LAYERS
+  if(S.prodImg) drawProd();
   S.layers.forEach(l=>{if(l.visible)drawLayer(l);});
   updSelBox();
+}
+
+function fontStr(l,size){
+  const fw = l.fontWeight==='bold'?'bold':(l.fontWeight||'normal');
+  const fam = l.fontFamily || globalFont.css;
+  return `${fw} ${size}px ${fam}`;
 }
 
 function drawProd(){
@@ -212,7 +339,9 @@ function drawProd(){
   pw*=p.sc/100;ph*=p.sc/100;
   const cx=S.W/2+p.x,cy=S.H*.52+p.y;
   ctx.save();ctx.translate(cx,cy);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.fh?-1:1,p.fv?-1:1);
-  if(document.getElementById('p-sh').checked){ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=28;ctx.shadowOffsetY=14;}
+  if(document.getElementById('p-sh').checked){
+    ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=28;ctx.shadowOffsetY=14;
+  }
   ctx.drawImage(img,-pw/2,-ph/2,pw,ph);
   ctx.restore();
   S.prod._cx=cx;S.prod._cy=cy;S.prod._pw=pw;S.prod._ph=ph;
@@ -221,7 +350,7 @@ function drawProd(){
 function drawLayer(l){
   ctx.save();
   if(l.type==='text'){
-    ctx.font=`${l.fontWeight==='bold'?'bold':(l.fontWeight||'normal')} ${l.fontSize}px Manrope,sans-serif`;
+    ctx.font=fontStr(l,l.fontSize);
     if(l.shadow){ctx.shadowColor='rgba(0,0,0,.75)';ctx.shadowBlur=8;ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;}
     ctx.fillStyle=l.color;
     const mW=S.W-l.x-40,lines=wrap(l.text,mW);
@@ -229,13 +358,13 @@ function drawLayer(l){
     lines.forEach(ln=>{ctx.fillText(ln,l.x,ly);ly+=l.fontSize*1.28;});
     l._b={x:l.x,y:l.y-l.fontSize,w:mW,h:lines.length*l.fontSize*1.28+l.fontSize};
   } else if(l.type==='cta'){
-    ctx.font=`${l.fontWeight||'700'} ${l.fontSize}px Manrope,sans-serif`;
+    ctx.font=fontStr(l,l.fontSize);
     const tw=ctx.measureText(l.text).width,px=36,py=13,bw=tw+px*2,bh=l.fontSize+py*2,bx=l.x-bw/2,by=l.y-bh/2;
     rr(bx,by,bw,bh,10);ctx.fillStyle=l.bgColor||'#fff';ctx.fill();
     ctx.fillStyle=l.color;ctx.fillText(l.text,bx+px,by+py+l.fontSize*.8);
     l._b={x:bx,y:by,w:bw,h:bh};
   } else if(l.type==='badge'){
-    ctx.font=`${l.fontWeight||'800'} ${l.fontSize}px Manrope,sans-serif`;
+    ctx.font=fontStr(l,l.fontSize);
     const tw=ctx.measureText(l.text).width,px=12,py=6,bw=tw+px*2,bh=l.fontSize+py*2;
     rr(l.x,l.y,bw,bh,5);ctx.fillStyle=l.bgColor||'#dc2626';ctx.fill();
     ctx.fillStyle=l.color;ctx.fillText(l.text,l.x+px,l.y+py+l.fontSize*.8);
@@ -250,14 +379,15 @@ function wrap(text,maxW){
   if(cur)lines.push(cur);
   return lines.length?lines:[''];
 }
-
 function rr(x,y,w,h,r){
   ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
   ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
   ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 
-// ── SELECTION BOX ──
+// ══════════════════════════════
+// SELECTION BOX
+// ══════════════════════════════
 function updSelBox(){
   const sb=document.getElementById('sbox');
   if(!S.sel){sb.classList.remove('on');return;}
@@ -271,11 +401,13 @@ function updSelBox(){
   }
   if(!b){sb.classList.remove('on');return;}
   const pad=5;
-  sb.style.cssText=`left:${(b.x*scX-pad)}px;top:${(b.y*scY-pad)}px;width:${(b.w*scX+pad*2)}px;height:${(b.h*scY+pad*2)}px`;
+  sb.style.cssText=`left:${b.x*scX-pad}px;top:${b.y*scY-pad}px;width:${b.w*scX+pad*2}px;height:${b.h*scY+pad*2}px`;
   sb.classList.add('on');
 }
 
-// ── HIT TEST ──
+// ══════════════════════════════
+// HIT TEST
+// ══════════════════════════════
 function hit(mx,my){
   for(let i=S.layers.length-1;i>=0;i--){
     const l=S.layers[i];
@@ -284,13 +416,14 @@ function hit(mx,my){
     if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)return l.id;
   }
   if(S.prod._pw){
-    const dx=mx-S.prod._cx,dy=my-S.prod._cy;
-    if(Math.abs(dx)<S.prod._pw/2&&Math.abs(dy)<S.prod._ph/2)return'product';
+    if(Math.abs(mx-S.prod._cx)<S.prod._pw/2&&Math.abs(my-S.prod._cy)<S.prod._ph/2)return'product';
   }
   return null;
 }
 
-// ── MOUSE/TOUCH ──
+// ══════════════════════════════
+// MOUSE / TOUCH
+// ══════════════════════════════
 function evPos(e){
   const r=canvas.getBoundingClientRect(),sc=gsc();
   const src=e.touches?e.touches[0]:e;
@@ -321,49 +454,60 @@ function onMv(e){
   if(S.dMode==='product'){S.prod.x=S.dStart.ox+dx;S.prod.y=S.dStart.oy+dy;}
   else{const l=S.layers.find(l=>l.id===S.sel);if(l){l.x=S.dStart.ox+dx;l.y=S.dStart.oy+dy;}}
   render();
-  const xy=S.dMode==='product'?`x:${Math.round(S.prod.x)} y:${Math.round(S.prod.y)}`:
-    (()=>{const l=S.layers.find(l=>l.id===S.sel);return l?`x:${Math.round(l.x)} y:${Math.round(l.y)}`:'';})();
-  document.getElementById('st-xy').textContent=xy;
+  const l=S.layers.find(l=>l.id===S.sel);
+  document.getElementById('st-xy').textContent=S.dMode==='product'
+    ?`x:${Math.round(S.prod.x)} y:${Math.round(S.prod.y)}`
+    :(l?`x:${Math.round(l.x)} y:${Math.round(l.y)}`:'');
 }
 
 canvas.addEventListener('mouseup',()=>{S.drag=false;});
 canvas.addEventListener('mouseleave',()=>{S.drag=false;});
 canvas.addEventListener('touchend',()=>{S.drag=false;});
 
-// ── SELECT ──
+// ══════════════════════════════
+// SELECT
+// ══════════════════════════════
 function sel(id){
   S.sel=id;buildLayers();buildTextPanel();
-  document.getElementById('st-sel').textContent=id?(id==='product'?'Продукт':(S.layers.find(l=>l.id===id)?.name||id)):'Ничего не выбрано';
+  document.getElementById('st-sel').textContent=id
+    ?(id==='product'?'Продукт':(S.layers.find(l=>l.id===id)?.name||id))
+    :'Ничего не выбрано';
   render();
 }
 
-// ── LAYERS PANEL ──
+// ══════════════════════════════
+// LAYERS
+// ══════════════════════════════
 function buildLayers(){
   const el=document.getElementById('layers-list');el.innerHTML='';
   if(S.prodImg){
-    const d=document.createElement('div');d.className='layer'+(S.sel==='product'?' active':'');
-    d.innerHTML=`<span>📦</span><span class="layer-name">Продукт</span>`;
+    const d=document.createElement('div');d.className='lyr'+(S.sel==='product'?' on':'');
+    d.innerHTML=`<span>📦</span><span class="ln">Продукт</span>`;
     d.onclick=()=>sel('product');el.appendChild(d);
   }
   [...S.layers].reverse().forEach(l=>{
-    const d=document.createElement('div');d.className='layer'+(S.sel===l.id?' active':'');
-    d.innerHTML=`<span>${{text:'T',cta:'⬜',badge:'🏷'}[l.type]||'◻'}</span><span class="layer-name">${l.name}</span><span class="l-eye" onclick="tVis('${l.id}',event)">${l.visible?'👁':'🙈'}</span>`;
+    const d=document.createElement('div');d.className='lyr'+(S.sel===l.id?' on':'');
+    d.innerHTML=`<span>${{text:'T',cta:'⬜',badge:'🏷'}[l.type]||'◻'}</span><span class="ln">${l.name}</span><span class="eye" onclick="tVis('${l.id}',event)">${l.visible?'👁':'🙈'}</span>`;
     d.onclick=()=>sel(l.id);el.appendChild(d);
   });
 }
 
 function tVis(id,e){e.stopPropagation();const l=S.layers.find(l=>l.id===id);if(l)l.visible=!l.visible;buildLayers();render();}
 
-// ── TEXT PANEL ──
+// ══════════════════════════════
+// TEXT PANEL
+// ══════════════════════════════
 function buildTextPanel(){
   const body=document.getElementById('text-body');
   const l=S.sel&&S.sel!=='product'?S.layers.find(x=>x.id===S.sel):null;
-  if(!l){body.innerHTML='<div style="color:var(--text2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div>';return;}
+  if(!l){body.innerHTML='<div style="color:var(--tx2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div>';return;}
+
+  const curFont = FONTS.find(f=>f.css===l.fontFamily)||FONTS[0];
   body.innerHTML=`
-    <div class="field"><label>Текст</label><textarea id="ttx" rows="3">${l.text}</textarea></div>
+    <div class="fi"><label>Текст</label><textarea id="ttx" rows="3">${l.text}</textarea></div>
     <div class="g2">
-      <div class="field"><label>Размер</label><input type="number" id="tsz" value="${l.fontSize}" min="8" max="200"></div>
-      <div class="field"><label>Жирность</label>
+      <div class="fi"><label>Размер</label><input type="number" id="tsz" value="${l.fontSize}" min="8" max="200"></div>
+      <div class="fi"><label>Жирность</label>
         <select id="tfw">
           <option value="300" ${l.fontWeight==='300'?'selected':''}>Тонкий</option>
           <option value="normal" ${l.fontWeight==='normal'?'selected':''}>Обычный</option>
@@ -373,12 +517,19 @@ function buildTextPanel(){
         </select>
       </div>
     </div>
-    <div class="field"><label>Цвет текста</label><input type="color" id="tcl" value="${l.color}"></div>
-    ${l.type==='cta'||l.type==='badge'?`<div class="field"><label>Цвет фона</label><input type="color" id="tbg" value="${l.bgColor||'#ffffff'}"></div>`:''}
-    ${l.type==='text'?`<div class="trow"><span class="tlabel">Тень текста</span><label class="tog"><input type="checkbox" id="tsh" ${l.shadow?'checked':''} onchange="updTxt()"><span class="tog-sl"></span></label></div>`:''}
-    <div style="margin-top:6px;color:var(--text2);font-size:10px">💡 Перетащи элемент прямо на баннере</div>
+    <div class="fi"><label>Шрифт слоя</label>
+      <select id="tff">
+        ${FONTS.map(f=>`<option value="${f.css}" ${f.css===l.fontFamily?'selected':''}>${f.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fi"><label>Цвет текста</label><input type="color" id="tcl" value="${l.color}"></div>
+    ${l.type==='cta'||l.type==='badge'?`<div class="fi"><label>Цвет фона</label><input type="color" id="tbg" value="${l.bgColor||'#ffffff'}"></div>`:''}
+    ${l.type==='text'?`<div class="tr"><span class="tl">Тень текста</span><label class="tog"><input type="checkbox" id="tsh" ${l.shadow?'checked':''} onchange="updTxt()"><span class="ts"></span></label></div>`:''}
+    <div style="margin-top:4px;color:var(--tx2);font-size:10px">💡 Перетащи элемент прямо на баннере</div>
   `;
-  ['ttx','tsz','tfw','tcl','tbg'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('input',updTxt);});
+  ['ttx','tsz','tfw','tff','tcl','tbg'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.addEventListener('input',updTxt);
+  });
 }
 
 function updTxt(){
@@ -388,13 +539,16 @@ function updTxt(){
   if(v('ttx')!==null)l.text=v('ttx');
   if(v('tsz')!==null)l.fontSize=parseInt(v('tsz'))||l.fontSize;
   if(v('tfw')!==null)l.fontWeight=v('tfw');
+  if(v('tff')!==null)l.fontFamily=v('tff');
   if(v('tcl')!==null)l.color=v('tcl');
   if(v('tbg')!==null)l.bgColor=v('tbg');
   if(cb('tsh')!==null)l.shadow=cb('tsh');
   render();
 }
 
-// ── PRODUCT ──
+// ══════════════════════════════
+// PRODUCT
+// ══════════════════════════════
 function updP(){
   S.prod.sc=parseInt(document.getElementById('ps').value);
   S.prod.rot=parseInt(document.getElementById('pr').value);
@@ -404,7 +558,9 @@ function updP(){
 }
 function flip(d){if(d==='h')S.prod.fh=!S.prod.fh;else S.prod.fv=!S.prod.fv;render();}
 
-// ── BG ──
+// ══════════════════════════════
+// BG
+// ══════════════════════════════
 function updBg(){
   S.bg.b=parseInt(document.getElementById('bb').value);
   S.bg.c=parseInt(document.getElementById('bc').value);
@@ -415,31 +571,42 @@ function updBg(){
   render();
 }
 
-// ── PANELS ──
-function tp(n){document.getElementById('p-'+n).classList.toggle('closed');}
+// ══════════════════════════════
+// PANELS
+// ══════════════════════════════
+function tp(n){document.getElementById('p-'+n).classList.toggle('cl');}
 
-// ── DOWNLOAD ──
+// ══════════════════════════════
+// DOWNLOAD
+// ══════════════════════════════
 function downloadBanner(){
   S.sel=null;render();
-  const fc=document.createElement('canvas');fc.width=S.W*2;fc.height=S.H*2;
-  fc.getContext('2d').drawImage(canvas,0,0,fc.width,fc.height);
-  const a=document.createElement('a');a.download='banner.png';a.href=fc.toDataURL('image/png');a.click();
-  toast('Баннер скачан ✅');
+  // Ждём один кадр чтобы render завершился
+  setTimeout(()=>{
+    const fc=document.createElement('canvas');fc.width=S.W*2;fc.height=S.H*2;
+    fc.getContext('2d').drawImage(canvas,0,0,fc.width,fc.height);
+    const a=document.createElement('a');a.download='banner.png';a.href=fc.toDataURL('image/png');a.click();
+    toast('Баннер скачан ✅');
+  },50);
 }
 
 function resetAll(){
-  S.prod={x:0,y:0,sc:100,rot:0,fh:false,fv:false};
+  S.prod={x:0,y:0,sc:100,rot:0,fh:false,fv:false,_cx:0,_cy:0,_pw:0,_ph:0};
   S.bg={b:100,c:100,o:25};
   ['ps','pr','bb','bc','bo'].forEach(id=>{
-    const e=document.getElementById(id);
-    if(e)e.value={'ps':100,'pr':0,'bb':100,'bc':100,'bo':25}[id];
+    document.getElementById(id).value={ps:100,pr:0,bb:100,bc:100,bo:25}[id];
   });
   updP();updBg();toast('Сброшено');
 }
 
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+}
 
-// ── SIZE CANVAS TO FIT ──
+// ══════════════════════════════
+// SIZE CANVAS
+// ══════════════════════════════
 function sizeCanvas(){
   const area=document.getElementById('carea');
   const aH=area.clientHeight-48,aW=area.clientWidth-48;
@@ -450,7 +617,9 @@ function sizeCanvas(){
 }
 window.addEventListener('resize',sizeCanvas);
 
-// ── START ──
+// ══════════════════════════════
+// START
+// ══════════════════════════════
 const hasData=location.search.includes('headline')||location.search.includes('bg');
 if(hasData)loadFromParams();else loadDemo();
 sizeCanvas();
