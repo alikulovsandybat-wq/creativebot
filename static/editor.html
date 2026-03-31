@@ -5,1069 +5,455 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Редактор баннера</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0f0f13;
-    --surface: #1a1a22;
-    --surface2: #22222e;
-    --border: #2e2e3e;
-    --accent: #7c6aff;
-    --accent2: #ff6ab0;
-    --text: #f0f0f8;
-    --text2: #8888aa;
-    --radius: 12px;
-  }
-
-  body {
-    font-family: 'Manrope', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ── HEADER ── */
-  header {
-    padding: 14px 24px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .logo span {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  /* ── BUTTONS ── */
-  .btn {
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), #9b6aff);
-    color: white;
-  }
-  .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-  .btn-ghost {
-    background: var(--surface2);
-    color: var(--text2);
-    border: 1px solid var(--border);
-  }
-  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
-  .btn-danger {
-    background: rgba(255, 80, 80, 0.12);
-    color: #ff7070;
-    border: 1px solid rgba(255, 80, 80, 0.2);
-  }
-  .btn-danger:hover { background: rgba(255, 80, 80, 0.2); }
-
-  /* ── LAYOUT ── */
-  .workspace {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    height: calc(100vh - 57px);
-  }
-
-  /* ── SIDEBAR ── */
-  .sidebar {
-    width: 300px;
-    min-width: 300px;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sidebar::-webkit-scrollbar { width: 4px; }
-  .sidebar::-webkit-scrollbar-track { background: transparent; }
-  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .panel {
-    border-bottom: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .panel-header {
-    padding: 14px 18px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text2);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    user-select: none;
-  }
-  .panel-header:hover { color: var(--text); }
-  .panel-arrow { transition: transform 0.2s; font-size: 10px; }
-  .panel.collapsed .panel-arrow { transform: rotate(-90deg); }
-  .panel.collapsed .panel-body { display: none; }
-
-  .panel-body { padding: 4px 18px 16px; }
-
-  /* ── FORM CONTROLS ── */
-  .field { margin-bottom: 14px; }
-  .field label {
-    display: block;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    margin-bottom: 6px;
-    letter-spacing: 0.3px;
-  }
-
-  input[type="text"], input[type="number"], textarea, select {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    padding: 8px 10px;
-    outline: none;
-    transition: border-color 0.15s;
-    resize: none;
-  }
-  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-  select option { background: var(--surface2); }
-  textarea { min-height: 56px; line-height: 1.4; }
-
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-
-  input[type="range"] {
-    width: 100%;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-  .range-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .range-val {
-    min-width: 36px;
-    text-align: right;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent);
-  }
-
-  input[type="color"] {
-    width: 100%;
-    height: 36px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface2);
-    cursor: pointer;
-    padding: 2px 4px;
-  }
-
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-  .toggle-label { font-size: 12px; color: var(--text2); }
-
-  .toggle {
-    position: relative;
-    width: 36px;
-    height: 20px;
-  }
-  .toggle input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider {
-    position: absolute;
-    inset: 0;
-    background: var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: 0.2s;
-  }
-  .toggle-slider::before {
-    content: '';
-    position: absolute;
-    width: 14px; height: 14px;
-    left: 3px; top: 3px;
-    background: white;
-    border-radius: 50%;
-    transition: 0.2s;
-  }
-  .toggle input:checked + .toggle-slider { background: var(--accent); }
-  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
-
-  /* ── CANVAS AREA ── */
-  .canvas-area {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-    background: var(--bg);
-    position: relative;
-    overflow: auto;
-  }
-
-  .canvas-wrap {
-    position: relative;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
-    border-radius: 4px;
-    overflow: hidden;
-    cursor: default;
-  }
-
-  canvas {
-    display: block;
-    image-rendering: -webkit-optimize-contrast;
-  }
-
-  /* ── SELECTION OVERLAY ── */
-  .selection-box {
-    position: absolute;
-    border: 2px solid var(--accent);
-    border-radius: 3px;
-    pointer-events: none;
-    display: none;
-  }
-  .selection-box.visible { display: block; }
-
-  /* ── LAYERS ── */
-  .layer-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    border-radius: 7px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text2);
-    transition: all 0.12s;
-    margin-bottom: 2px;
-  }
-  .layer-item:hover { background: var(--surface2); color: var(--text); }
-  .layer-item.active { background: rgba(124,106,255,0.15); color: var(--text); border: 1px solid rgba(124,106,255,0.3); }
-  .layer-icon { font-size: 14px; }
-  .layer-name { flex: 1; }
-  .layer-vis {
-    font-size: 11px;
-    color: var(--text2);
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
-  .layer-vis:hover { background: var(--border); }
-
-  /* ── STATUS BAR ── */
-  .statusbar {
-    padding: 6px 20px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--text2);
-    display: flex;
-    gap: 20px;
-  }
-
-  /* ── TOAST ── */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    z-index: 999;
-    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    white-space: nowrap;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* ── MOBILE ── */
-  @media (max-width: 700px) {
-    .workspace { flex-direction: column; height: auto; }
-    .sidebar { width: 100%; min-width: 0; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
-    .canvas-area { padding: 20px 12px; }
-  }
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d12;--surface:#16161f;--surface2:#1e1e2a;--border:#28283a;
+  --accent:#7c6aff;--accent2:#ff6ab0;--text:#eeeef8;--text2:#7777aa;
+}
+body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{height:52px;min-height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px}
+.logo{font-size:14px;font-weight:800;letter-spacing:-.3px}
+.logo em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hbtns{display:flex;gap:6px}
+.btn{padding:7px 14px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#9b6aff);color:#fff}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
+.workspace{display:flex;flex:1;overflow:hidden}
+.sidebar{width:260px;min-width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-scroll{flex:1;overflow-y:auto}
+.sb-scroll::-webkit-scrollbar{width:3px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.panel{border-bottom:1px solid var(--border)}
+.ph{padding:10px 14px;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.ph:hover{color:var(--text)}
+.arr{transition:transform .2s;font-size:9px}
+.panel.closed .arr{transform:rotate(-90deg)}
+.panel.closed .pb{display:none}
+.pb{padding:2px 14px 14px}
+.layer{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);transition:all .12s;margin-bottom:2px;user-select:none}
+.layer:hover{background:var(--surface2);color:var(--text)}
+.layer.active{background:rgba(124,106,255,.15);color:var(--text);border:1px solid rgba(124,106,255,.3)}
+.layer-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.l-eye{font-size:11px;padding:2px 4px;border-radius:4px}
+.l-eye:hover{background:var(--border)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.3px;text-transform:uppercase}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 9px;outline:none;transition:border-color .15s;resize:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--surface2)}
+textarea{min-height:52px;line-height:1.4}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+.rrow{display:flex;align-items:center;gap:8px}
+.rval{min-width:38px;text-align:right;font-size:11px;font-weight:700;color:var(--accent)}
+input[type=color]{width:100%;height:34px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);cursor:pointer;padding:2px 4px}
+.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.tlabel{font-size:11px;color:var(--text2)}
+.tog{position:relative;width:34px;height:18px}
+.tog input{opacity:0;width:0;height:0}
+.tog-sl{position:absolute;inset:0;background:var(--border);border-radius:9px;cursor:pointer;transition:.2s}
+.tog-sl::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.tog input:checked+.tog-sl{background:var(--accent)}
+.tog input:checked+.tog-sl::before{transform:translateX(16px)}
+.canvas-area{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);overflow:auto;position:relative}
+.cwrap{position:relative;box-shadow:0 20px 80px rgba(0,0,0,.7);border-radius:3px;flex-shrink:0}
+canvas{display:block;cursor:default}
+.sel-box{position:absolute;border:2px dashed var(--accent);border-radius:3px;pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(124,106,255,.2)}
+.sel-box.on{display:block}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(22,22,31,.9);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;color:var(--text2);pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px)}
+.status{height:26px;min-height:26px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;gap:20px;padding:0 16px;font-size:10px;color:var(--text2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 18px;font-size:12px;font-weight:700;color:var(--text);z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-
 <header>
-  <div class="logo">✦ <span>Редактор баннера</span></div>
-  <div class="header-actions">
-    <button class="btn btn-ghost" onclick="resetChanges()">↩ Сброс</button>
-    <button class="btn btn-primary" onclick="downloadBanner()">⬇ Скачать</button>
+  <div class="logo">✦ <em>Редактор баннера</em></div>
+  <div class="hbtns">
+    <button class="btn btn-ghost" onclick="resetAll()">↩ Сброс</button>
+    <button class="btn btn-primary" onclick="downloadBanner()">⬇ Скачать PNG</button>
   </div>
 </header>
 
 <div class="workspace">
-
-  <!-- SIDEBAR -->
   <div class="sidebar">
-
-    <!-- СЛОИ -->
-    <div class="panel" id="panel-layers">
-      <div class="panel-header" onclick="togglePanel('layers')">
-        Слои <span class="panel-arrow">▾</span>
+    <div class="sb-scroll">
+      <div class="panel" id="p-layers">
+        <div class="ph" onclick="tp('layers')">Слои <span class="arr">▾</span></div>
+        <div class="pb" id="layers-list"></div>
       </div>
-      <div class="panel-body">
-        <div id="layers-list"></div>
+      <div class="panel" id="p-text">
+        <div class="ph" onclick="tp('text')">Текст <span class="arr">▾</span></div>
+        <div class="pb" id="text-body"><div style="color:var(--text2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div></div>
       </div>
-    </div>
-
-    <!-- ТЕКСТ -->
-    <div class="panel" id="panel-text">
-      <div class="panel-header" onclick="togglePanel('text')">
-        Текст <span class="panel-arrow">▾</span>
-      </div>
-      <div class="panel-body" id="text-panel-body">
-        <div style="color:var(--text2);font-size:12px;padding:8px 0;">Выбери текстовый слой</div>
-      </div>
-    </div>
-
-    <!-- ПРОДУКТ -->
-    <div class="panel" id="panel-product">
-      <div class="panel-header" onclick="togglePanel('product')">
-        Продукт <span class="panel-arrow">▾</span>
-      </div>
-      <div class="panel-body">
-        <div class="field">
-          <label>Позиция X</label>
-          <div class="range-row">
-            <input type="range" id="prod-x" min="-400" max="400" value="0" oninput="updateProduct()">
-            <span class="range-val" id="prod-x-val">0</span>
+      <div class="panel" id="p-prod">
+        <div class="ph" onclick="tp('prod')">Продукт <span class="arr">▾</span></div>
+        <div class="pb">
+          <div style="color:var(--text2);font-size:11px;margin-bottom:10px">Перетащи продукт прямо на баннере мышью</div>
+          <div class="field"><label>Размер</label><div class="rrow"><input type="range" id="ps" min="20" max="200" value="100" oninput="updP()"><span class="rval" id="ps-v">100%</span></div></div>
+          <div class="field"><label>Поворот</label><div class="rrow"><input type="range" id="pr" min="-180" max="180" value="0" oninput="updP()"><span class="rval" id="pr-v">0°</span></div></div>
+          <div class="g2" style="margin-bottom:12px">
+            <button class="btn btn-ghost" onclick="flip('h')" style="font-size:11px;padding:6px">↔ Гор.</button>
+            <button class="btn btn-ghost" onclick="flip('v')" style="font-size:11px;padding:6px">↕ Верт.</button>
           </div>
-        </div>
-        <div class="field">
-          <label>Позиция Y</label>
-          <div class="range-row">
-            <input type="range" id="prod-y" min="-400" max="400" value="0" oninput="updateProduct()">
-            <span class="range-val" id="prod-y-val">0</span>
-          </div>
-        </div>
-        <div class="field">
-          <label>Размер</label>
-          <div class="range-row">
-            <input type="range" id="prod-scale" min="20" max="200" value="100" oninput="updateProduct()">
-            <span class="range-val" id="prod-scale-val">100%</span>
-          </div>
-        </div>
-        <div class="field">
-          <label>Поворот</label>
-          <div class="range-row">
-            <input type="range" id="prod-rotate" min="-180" max="180" value="0" oninput="updateProduct()">
-            <span class="range-val" id="prod-rotate-val">0°</span>
-          </div>
-        </div>
-        <div class="field">
-          <label>Отражение</label>
-          <div class="row2">
-            <button class="btn btn-ghost" onclick="flipProduct('h')">↔ По гор.</button>
-            <button class="btn btn-ghost" onclick="flipProduct('v')">↕ По верт.</button>
-          </div>
+          <div class="trow"><span class="tlabel">Тень продукта</span><label class="tog"><input type="checkbox" id="p-sh" checked onchange="render()"><span class="tog-sl"></span></label></div>
         </div>
       </div>
-    </div>
-
-    <!-- ФОН -->
-    <div class="panel" id="panel-bg">
-      <div class="panel-header" onclick="togglePanel('bg')">
-        Фон <span class="panel-arrow">▾</span>
-      </div>
-      <div class="panel-body">
-        <div class="field">
-          <label>Яркость</label>
-          <div class="range-row">
-            <input type="range" id="bg-brightness" min="0" max="200" value="100" oninput="updateBg()">
-            <span class="range-val" id="bg-brightness-val">100</span>
-          </div>
-        </div>
-        <div class="field">
-          <label>Контраст</label>
-          <div class="range-row">
-            <input type="range" id="bg-contrast" min="0" max="200" value="100" oninput="updateBg()">
-            <span class="range-val" id="bg-contrast-val">100</span>
-          </div>
-        </div>
-        <div class="field">
-          <label>Затемнение оверлея</label>
-          <div class="range-row">
-            <input type="range" id="bg-overlay" min="0" max="100" value="30" oninput="updateBg()">
-            <span class="range-val" id="bg-overlay-val">30%</span>
-          </div>
+      <div class="panel" id="p-bg">
+        <div class="ph" onclick="tp('bg')">Фон <span class="arr">▾</span></div>
+        <div class="pb">
+          <div class="field"><label>Яркость</label><div class="rrow"><input type="range" id="bb" min="0" max="200" value="100" oninput="updBg()"><span class="rval" id="bb-v">100</span></div></div>
+          <div class="field"><label>Контраст</label><div class="rrow"><input type="range" id="bc" min="0" max="200" value="100" oninput="updBg()"><span class="rval" id="bc-v">100</span></div></div>
+          <div class="field"><label>Затемнение</label><div class="rrow"><input type="range" id="bo" min="0" max="90" value="25" oninput="updBg()"><span class="rval" id="bo-v">25%</span></div></div>
         </div>
       </div>
-    </div>
-
-  </div>
-
-  <!-- CANVAS -->
-  <div class="canvas-area">
-    <div class="canvas-wrap" id="canvas-wrap">
-      <canvas id="mainCanvas"></canvas>
-      <div class="selection-box" id="selectionBox"></div>
     </div>
   </div>
 
+  <div class="canvas-area" id="carea">
+    <div class="cwrap" id="cwrap">
+      <canvas id="c"></canvas>
+      <div class="sel-box" id="sbox"></div>
+    </div>
+    <div class="hint">💡 Кликни на элемент · Тащи чтобы переместить · Продукт тоже перетаскивается</div>
+  </div>
 </div>
 
-<div class="statusbar">
-  <span id="status-size">—</span>
-  <span id="status-layer">Слой: —</span>
-  <span id="status-pos">—</span>
+<div class="status">
+  <span id="st-sz">—</span>
+  <span id="st-sel">Ничего не выбрано</span>
+  <span id="st-xy">—</span>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════
-const canvas = document.getElementById('mainCanvas');
-const ctx = canvas.getContext('2d');
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const S={W:540,H:960,bgImg:null,prodImg:null,bg:{b:100,c:100,o:25},prod:{x:0,y:0,sc:100,rot:0,fh:false,fv:false},layers:[],sel:null,drag:false,dMode:null,dStart:{mx:0,my:0,ox:0,oy:0}};
 
-let state = {
-  canvasW: 540,
-  canvasH: 960,
-  bgImage: null,
-  productImage: null,
-  bgFilter: { brightness: 100, contrast: 100, overlay: 30 },
-  product: { x: 0, y: 0, scale: 100, rotate: 0, flipH: false, flipV: false },
-  layers: [],
-  selectedLayer: null,
-  dragging: false,
-  dragStart: { x: 0, y: 0 },
-  dragLayerStart: { x: 0, y: 0 },
-};
+function gsc(){const r=canvas.getBoundingClientRect();return{sx:S.W/r.width,sy:S.H/r.height}}
 
-// ══════════════════════════════════════════════
-// URL PARAMS → load data from Telegram bot
-// ══════════════════════════════════════════════
-function loadFromParams() {
-  const p = new URLSearchParams(window.location.search);
+// ── INIT ──
+function loadDemo(){
+  S.W=540;S.H=960;canvas.width=S.W;canvas.height=S.H;
+  document.getElementById('st-sz').textContent='1080×1920px';
+  S.layers=[
+    mkBadge('Акция'),
+    mkTxt('hl','Заголовок','Цветы, которые радуют годами',54,60,54,'bold','#ffffff'),
+    mkTxt('sub','Подзаголовок','Подарите сертификат на 8 марта',54,200,22,'normal','#eeeeee'),
+    mkTxt('b0','Буллет 1','— Оригинально и приятно',54,660,20,'normal','#dddddd'),
+    mkTxt('b1','Буллет 2','— Долговечные растения',54,696,20,'normal','#dddddd'),
+    mkTxt('b2','Буллет 3','— Сертификат на выбор',54,732,20,'normal','#dddddd'),
+    mkCTA('Получить каталог'),
+  ];
+  buildLayers();render();
+}
 
-  // Формат
-  const fmt = p.get('fmt') || 'square';
-  if (fmt === 'stories') {
-    state.canvasW = 540;
-    state.canvasH = 960;
+function loadFromParams(){
+  const p=new URLSearchParams(location.search);
+  const fmt=p.get('fmt')||'stories';
+  S.W=fmt==='square'?720:540;S.H=fmt==='square'?720:960;
+  canvas.width=S.W;canvas.height=S.H;
+  document.getElementById('st-sz').textContent=`${S.W*2}×${S.H*2}px`;
+  S.layers=[];
+  const g=k=>p.get(k)?decodeURIComponent(p.get(k)):null;
+  if(g('badge'))S.layers.push(mkBadge(g('badge')));
+  if(g('headline'))S.layers.push(mkTxt('hl','Заголовок',g('headline'),54,60,54,'bold','#ffffff'));
+  if(g('sub'))S.layers.push(mkTxt('sub','Подзаголовок',g('sub'),54,200,22,'normal','#eeeeee'));
+  if(g('price'))S.layers.push(mkTxt('price','Цена',g('price'),54,260,42,'bold','#ffd700'));
+  if(g('bullets')){
+    let by=fmt==='square'?460:640;
+    g('bullets').split('|').forEach((b,i)=>{
+      S.layers.push(mkTxt(`b${i}`,`Буллет ${i+1}`,b,54,by,20,'normal','#dddddd'));by+=36;
+    });
+  }
+  if(g('cta'))S.layers.push(mkCTA(g('cta')));
+  const bgU=g('bg'),prU=g('product');
+  if(bgU)loadImg(bgU,img=>{S.bgImg=img;render();});
+  if(prU)loadImg(prU,img=>{S.prodImg=img;render();});
+  buildLayers();render();
+}
+
+function mkTxt(id,name,text,x,y,fs,fw,color){return{id,name,type:'text',text,x,y,fontSize:fs,fontWeight:fw,color,visible:true,shadow:true,_b:null}}
+function mkBadge(text){return{id:'badge',name:'Бейдж',type:'badge',text,x:54,y:30,fontSize:15,fontWeight:'800',color:'#fff',bgColor:'#dc2626',visible:true,_b:null}}
+function mkCTA(text){return{id:'cta',name:'Кнопка CTA',type:'cta',text,x:S.W/2,y:S.H-75,fontSize:21,fontWeight:'700',color:'#111',bgColor:'#ffffff',visible:true,_b:null}}
+function loadImg(src,cb){const i=new Image();i.crossOrigin='anonymous';i.onload=()=>cb(i);i.onerror=()=>{};i.src=src;}
+
+// ── RENDER ──
+function render(){
+  ctx.clearRect(0,0,S.W,S.H);
+  // BG
+  if(S.bgImg){
+    ctx.filter=`brightness(${S.bg.b}%) contrast(${S.bg.c}%)`;
+    const sc=Math.max(S.W/S.bgImg.width,S.H/S.bgImg.height);
+    const bw=S.bgImg.width*sc,bh=S.bgImg.height*sc;
+    ctx.drawImage(S.bgImg,(S.W-bw)/2,(S.H-bh)/2,bw,bh);
+    ctx.filter='none';
   } else {
-    state.canvasW = 720;
-    state.canvasH = 720;
+    const g=ctx.createLinearGradient(0,0,0,S.H);
+    g.addColorStop(0,'#1a1a2e');g.addColorStop(1,'#0d0d1a');
+    ctx.fillStyle=g;ctx.fillRect(0,0,S.W,S.H);
   }
+  ctx.fillStyle=`rgba(0,0,0,${S.bg.o/100})`;ctx.fillRect(0,0,S.W,S.H);
+  // PRODUCT
+  if(S.prodImg)drawProd();
+  // LAYERS
+  S.layers.forEach(l=>{if(l.visible)drawLayer(l);});
+  updSelBox();
+}
 
-  canvas.width = state.canvasW;
-  canvas.height = state.canvasH;
-  document.getElementById('status-size').textContent =
-    `${state.canvasW * 2}×${state.canvasH * 2}px`;
+function drawProd(){
+  const p=S.prod,img=S.prodImg;
+  const mH=S.H*.48,mW=S.W*.82,ratio=img.width/img.height;
+  let pw,ph;
+  if(ratio>mW/mH){pw=mW;ph=pw/ratio;}else{ph=mH;pw=ph*ratio;}
+  pw*=p.sc/100;ph*=p.sc/100;
+  const cx=S.W/2+p.x,cy=S.H*.52+p.y;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.fh?-1:1,p.fv?-1:1);
+  if(document.getElementById('p-sh').checked){ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=28;ctx.shadowOffsetY=14;}
+  ctx.drawImage(img,-pw/2,-ph/2,pw,ph);
+  ctx.restore();
+  S.prod._cx=cx;S.prod._cy=cy;S.prod._pw=pw;S.prod._ph=ph;
+}
 
-  // Слои из параметров
-  state.layers = [];
-
-  // Заголовок
-  if (p.get('headline')) {
-    state.layers.push({
-      id: 'headline', type: 'text', name: 'Заголовок',
-      text: decodeURIComponent(p.get('headline')),
-      x: 54, y: 60,
-      fontSize: fmt === 'stories' ? 52 : 60,
-      fontWeight: 'bold',
-      color: p.get('headline_color') || '#ffffff',
-      visible: true, shadow: true,
-    });
+function drawLayer(l){
+  ctx.save();
+  if(l.type==='text'){
+    ctx.font=`${l.fontWeight==='bold'?'bold':(l.fontWeight||'normal')} ${l.fontSize}px Manrope,sans-serif`;
+    if(l.shadow){ctx.shadowColor='rgba(0,0,0,.75)';ctx.shadowBlur=8;ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;}
+    ctx.fillStyle=l.color;
+    const mW=S.W-l.x-40,lines=wrap(l.text,mW);
+    let ly=l.y;
+    lines.forEach(ln=>{ctx.fillText(ln,l.x,ly);ly+=l.fontSize*1.28;});
+    l._b={x:l.x,y:l.y-l.fontSize,w:mW,h:lines.length*l.fontSize*1.28+l.fontSize};
+  } else if(l.type==='cta'){
+    ctx.font=`${l.fontWeight||'700'} ${l.fontSize}px Manrope,sans-serif`;
+    const tw=ctx.measureText(l.text).width,px=36,py=13,bw=tw+px*2,bh=l.fontSize+py*2,bx=l.x-bw/2,by=l.y-bh/2;
+    rr(bx,by,bw,bh,10);ctx.fillStyle=l.bgColor||'#fff';ctx.fill();
+    ctx.fillStyle=l.color;ctx.fillText(l.text,bx+px,by+py+l.fontSize*.8);
+    l._b={x:bx,y:by,w:bw,h:bh};
+  } else if(l.type==='badge'){
+    ctx.font=`${l.fontWeight||'800'} ${l.fontSize}px Manrope,sans-serif`;
+    const tw=ctx.measureText(l.text).width,px=12,py=6,bw=tw+px*2,bh=l.fontSize+py*2;
+    rr(l.x,l.y,bw,bh,5);ctx.fillStyle=l.bgColor||'#dc2626';ctx.fill();
+    ctx.fillStyle=l.color;ctx.fillText(l.text,l.x+px,l.y+py+l.fontSize*.8);
+    l._b={x:l.x,y:l.y,w:bw,h:bh};
   }
+  ctx.restore();
+}
 
-  // Подзаголовок
-  if (p.get('sub')) {
-    state.layers.push({
-      id: 'sub', type: 'text', name: 'Подзаголовок',
-      text: decodeURIComponent(p.get('sub')),
-      x: 54, y: 160,
-      fontSize: 22, fontWeight: 'normal',
-      color: p.get('sub_color') || '#eeeeee',
-      visible: true, shadow: true,
-    });
+function wrap(text,maxW){
+  const words=text.split(' '),lines=[];let cur='';
+  words.forEach(w=>{const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;});
+  if(cur)lines.push(cur);
+  return lines.length?lines:[''];
+}
+
+function rr(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+// ── SELECTION BOX ──
+function updSelBox(){
+  const sb=document.getElementById('sbox');
+  if(!S.sel){sb.classList.remove('on');return;}
+  const r=canvas.getBoundingClientRect(),scX=r.width/S.W,scY=r.height/S.H;
+  let b=null;
+  if(S.sel==='product'&&S.prod._pw){
+    b={x:S.prod._cx-S.prod._pw/2,y:S.prod._cy-S.prod._ph/2,w:S.prod._pw,h:S.prod._ph};
+  } else {
+    const l=S.layers.find(l=>l.id===S.sel);
+    if(l&&l._b)b=l._b;
   }
+  if(!b){sb.classList.remove('on');return;}
+  const pad=5;
+  sb.style.cssText=`left:${(b.x*scX-pad)}px;top:${(b.y*scY-pad)}px;width:${(b.w*scX+pad*2)}px;height:${(b.h*scY+pad*2)}px`;
+  sb.classList.add('on');
+}
 
-  // Буллеты
-  const bullets = p.get('bullets');
-  if (bullets) {
-    const bList = decodeURIComponent(bullets).split('|');
-    let by = fmt === 'stories' ? 680 : 550;
-    bList.forEach((b, i) => {
-      state.layers.push({
-        id: `bullet_${i}`, type: 'text', name: `Буллет ${i + 1}`,
-        text: b,
-        x: 54, y: by,
-        fontSize: 20, fontWeight: 'normal',
-        color: '#dddddd',
-        visible: true, shadow: true,
-      });
-      by += 36;
-    });
+// ── HIT TEST ──
+function hit(mx,my){
+  for(let i=S.layers.length-1;i>=0;i--){
+    const l=S.layers[i];
+    if(!l.visible||!l._b)continue;
+    const b=l._b;
+    if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)return l.id;
   }
-
-  // Цена
-  if (p.get('price')) {
-    state.layers.push({
-      id: 'price', type: 'text', name: 'Цена',
-      text: decodeURIComponent(p.get('price')),
-      x: 54, y: fmt === 'stories' ? 220 : 200,
-      fontSize: 40, fontWeight: 'bold',
-      color: p.get('price_color') || '#ffd700',
-      visible: true, shadow: true,
-    });
+  if(S.prod._pw){
+    const dx=mx-S.prod._cx,dy=my-S.prod._cy;
+    if(Math.abs(dx)<S.prod._pw/2&&Math.abs(dy)<S.prod._ph/2)return'product';
   }
+  return null;
+}
 
-  // CTA
-  if (p.get('cta')) {
-    state.layers.push({
-      id: 'cta', type: 'cta', name: 'Кнопка CTA',
-      text: decodeURIComponent(p.get('cta')),
-      x: state.canvasW / 2, y: state.canvasH - 80,
-      fontSize: 22, fontWeight: '600',
-      color: '#111111', bgColor: '#ffffff',
-      visible: true,
-    });
+// ── MOUSE/TOUCH ──
+function evPos(e){
+  const r=canvas.getBoundingClientRect(),sc=gsc();
+  const src=e.touches?e.touches[0]:e;
+  return{mx:(src.clientX-r.left)*sc.sx,my:(src.clientY-r.top)*sc.sy};
+}
+
+canvas.addEventListener('mousedown',onDn);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();onDn(e);},{passive:false});
+
+function onDn(e){
+  const{mx,my}=evPos(e),h=hit(mx,my);
+  if(h){
+    sel(h);S.drag=true;S.dStart={mx,my};
+    if(h==='product'){S.dMode='product';S.dStart.ox=S.prod.x;S.dStart.oy=S.prod.y;}
+    else{S.dMode='text';const l=S.layers.find(l=>l.id===h);S.dStart.ox=l.x;S.dStart.oy=l.y;}
+    canvas.style.cursor='grabbing';
+  } else sel(null);
+}
+
+canvas.addEventListener('mousemove',onMv);
+canvas.addEventListener('touchmove',e=>{e.preventDefault();onMv(e);},{passive:false});
+
+function onMv(e){
+  if(!S.drag){
+    const{mx,my}=evPos(e);canvas.style.cursor=hit(mx,my)?'grab':'default';return;
   }
+  const{mx,my}=evPos(e),dx=mx-S.dStart.mx,dy=my-S.dStart.my;
+  if(S.dMode==='product'){S.prod.x=S.dStart.ox+dx;S.prod.y=S.dStart.oy+dy;}
+  else{const l=S.layers.find(l=>l.id===S.sel);if(l){l.x=S.dStart.ox+dx;l.y=S.dStart.oy+dy;}}
+  render();
+  const xy=S.dMode==='product'?`x:${Math.round(S.prod.x)} y:${Math.round(S.prod.y)}`:
+    (()=>{const l=S.layers.find(l=>l.id===S.sel);return l?`x:${Math.round(l.x)} y:${Math.round(l.y)}`:'';})();
+  document.getElementById('st-xy').textContent=xy;
+}
 
-  // Badge
-  if (p.get('badge')) {
-    state.layers.push({
-      id: 'badge', type: 'badge', name: 'Бейдж',
-      text: decodeURIComponent(p.get('badge')),
-      x: 54, y: 30,
-      fontSize: 16, fontWeight: '700',
-      color: '#ffffff', bgColor: '#dc2626',
-      visible: true,
-    });
-  }
+canvas.addEventListener('mouseup',()=>{S.drag=false;});
+canvas.addEventListener('mouseleave',()=>{S.drag=false;});
+canvas.addEventListener('touchend',()=>{S.drag=false;});
 
-  // Фоновое изображение
-  const bgUrl = p.get('bg');
-  if (bgUrl) {
-    loadImage(decodeURIComponent(bgUrl), (img) => {
-      state.bgImage = img;
-      render();
-    });
-  }
-
-  // Изображение продукта
-  const prodUrl = p.get('product');
-  if (prodUrl) {
-    loadImage(decodeURIComponent(prodUrl), (img) => {
-      state.productImage = img;
-      render();
-    });
-  }
-
-  buildLayersList();
+// ── SELECT ──
+function sel(id){
+  S.sel=id;buildLayers();buildTextPanel();
+  document.getElementById('st-sel').textContent=id?(id==='product'?'Продукт':(S.layers.find(l=>l.id===id)?.name||id)):'Ничего не выбрано';
   render();
 }
 
-function loadImage(src, cb) {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => cb(img);
-  img.onerror = () => console.warn('Image load failed:', src);
-  img.src = src;
-}
-
-// ══════════════════════════════════════════════
-// RENDER
-// ══════════════════════════════════════════════
-function render() {
-  const W = state.canvasW, H = state.canvasH;
-  ctx.clearRect(0, 0, W, H);
-
-  // 1. Фон
-  if (state.bgImage) {
-    const f = state.bgFilter;
-    ctx.filter = `brightness(${f.brightness}%) contrast(${f.contrast}%)`;
-    const scale = Math.max(W / state.bgImage.width, H / state.bgImage.height);
-    const bw = state.bgImage.width * scale;
-    const bh = state.bgImage.height * scale;
-    ctx.drawImage(state.bgImage, (W - bw) / 2, (H - bh) / 2, bw, bh);
-    ctx.filter = 'none';
-  } else {
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, W, H);
+// ── LAYERS PANEL ──
+function buildLayers(){
+  const el=document.getElementById('layers-list');el.innerHTML='';
+  if(S.prodImg){
+    const d=document.createElement('div');d.className='layer'+(S.sel==='product'?' active':'');
+    d.innerHTML=`<span>📦</span><span class="layer-name">Продукт</span>`;
+    d.onclick=()=>sel('product');el.appendChild(d);
   }
-
-  // 2. Оверлей
-  const ov = state.bgFilter.overlay / 100;
-  ctx.fillStyle = `rgba(0,0,0,${ov})`;
-  ctx.fillRect(0, 0, W, H);
-
-  // 3. Продукт
-  if (state.productImage) {
-    const p = state.product;
-    const maxH = H * 0.5;
-    const maxW = W * 0.85;
-    const ratio = state.productImage.width / state.productImage.height;
-    let pw, ph;
-    if (ratio > maxW / maxH) { pw = maxW; ph = pw / ratio; }
-    else { ph = maxH; pw = ph * ratio; }
-    pw *= p.scale / 100;
-    ph *= p.scale / 100;
-
-    const cx = W / 2 + p.x;
-    const cy = H * 0.55 + p.y;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(p.rotate * Math.PI / 180);
-    ctx.scale(p.flipH ? -1 : 1, p.flipV ? -1 : 1);
-    ctx.drawImage(state.productImage, -pw / 2, -ph / 2, pw, ph);
-    ctx.restore();
-  }
-
-  // 4. Текстовые слои
-  state.layers.forEach(layer => {
-    if (!layer.visible) return;
-    if (layer.type === 'text') drawTextLayer(layer);
-    else if (layer.type === 'cta') drawCtaLayer(layer);
-    else if (layer.type === 'badge') drawBadgeLayer(layer);
+  [...S.layers].reverse().forEach(l=>{
+    const d=document.createElement('div');d.className='layer'+(S.sel===l.id?' active':'');
+    d.innerHTML=`<span>${{text:'T',cta:'⬜',badge:'🏷'}[l.type]||'◻'}</span><span class="layer-name">${l.name}</span><span class="l-eye" onclick="tVis('${l.id}',event)">${l.visible?'👁':'🙈'}</span>`;
+    d.onclick=()=>sel(l.id);el.appendChild(d);
   });
 }
 
-function drawTextLayer(l) {
-  ctx.save();
-  const fw = l.fontWeight === 'bold' ? 'bold' : (l.fontWeight || 'normal');
-  ctx.font = `${fw} ${l.fontSize}px 'Manrope', sans-serif`;
-  if (l.shadow) {
-    ctx.shadowColor = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-  }
-  ctx.fillStyle = l.color;
+function tVis(id,e){e.stopPropagation();const l=S.layers.find(l=>l.id===id);if(l)l.visible=!l.visible;buildLayers();render();}
 
-  // Перенос строк
-  const maxW = state.canvasW - l.x - 40;
-  const lines = wrapText(ctx, l.text, maxW);
-  let ly = l.y;
-  lines.forEach(line => {
-    ctx.fillText(line, l.x, ly);
-    ly += l.fontSize * 1.3;
-  });
-  ctx.restore();
-}
-
-function drawCtaLayer(l) {
-  ctx.save();
-  ctx.font = `${l.fontWeight || '600'} ${l.fontSize}px 'Manrope', sans-serif`;
-  const tw = ctx.measureText(l.text).width;
-  const px = 36, py = 14;
-  const bw = tw + px * 2, bh = l.fontSize + py * 2;
-  const bx = l.x - bw / 2, by = l.y - bh / 2;
-  roundRect(ctx, bx, by, bw, bh, 10);
-  ctx.fillStyle = l.bgColor || '#ffffff';
-  ctx.fill();
-  ctx.fillStyle = l.color;
-  ctx.fillText(l.text, bx + px, by + py + l.fontSize * 0.8);
-  ctx.restore();
-}
-
-function drawBadgeLayer(l) {
-  ctx.save();
-  ctx.font = `${l.fontWeight || 'bold'} ${l.fontSize}px 'Manrope', sans-serif`;
-  const tw = ctx.measureText(l.text).width;
-  const px = 14, py = 7;
-  const bw = tw + px * 2, bh = l.fontSize + py * 2;
-  roundRect(ctx, l.x, l.y, bw, bh, 5);
-  ctx.fillStyle = l.bgColor || '#dc2626';
-  ctx.fill();
-  ctx.fillStyle = l.color;
-  ctx.fillText(l.text, l.x + px, l.y + py + l.fontSize * 0.8);
-  ctx.restore();
-}
-
-function wrapText(ctx, text, maxW) {
-  const words = text.split(' ');
-  const lines = [];
-  let cur = '';
-  words.forEach(w => {
-    const test = cur ? cur + ' ' + w : w;
-    if (ctx.measureText(test).width > maxW && cur) {
-      lines.push(cur);
-      cur = w;
-    } else { cur = test; }
-  });
-  if (cur) lines.push(cur);
-  return lines;
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// ══════════════════════════════════════════════
-// LAYERS PANEL
-// ══════════════════════════════════════════════
-function buildLayersList() {
-  const el = document.getElementById('layers-list');
-  el.innerHTML = '';
-  [...state.layers].reverse().forEach(layer => {
-    const div = document.createElement('div');
-    div.className = 'layer-item' + (state.selectedLayer === layer.id ? ' active' : '');
-    div.innerHTML = `
-      <span class="layer-icon">${layerIcon(layer.type)}</span>
-      <span class="layer-name">${layer.name}</span>
-      <span class="layer-vis" onclick="toggleVis('${layer.id}',event)">${layer.visible ? '👁' : '🙈'}</span>
-    `;
-    div.onclick = () => selectLayer(layer.id);
-    el.appendChild(div);
-  });
-}
-
-function layerIcon(type) {
-  return { text: 'T', cta: '⬜', badge: '🏷', product: '📦', bg: '🖼' }[type] || '◻';
-}
-
-function selectLayer(id) {
-  state.selectedLayer = id;
-  buildLayersList();
-  buildTextPanel();
-  document.getElementById('status-layer').textContent = 'Слой: ' + (state.layers.find(l => l.id === id)?.name || '—');
-}
-
-function toggleVis(id, e) {
-  e.stopPropagation();
-  const l = state.layers.find(l => l.id === id);
-  if (l) { l.visible = !l.visible; }
-  buildLayersList();
-  render();
-}
-
-// ══════════════════════════════════════════════
-// TEXT PANEL
-// ══════════════════════════════════════════════
-function buildTextPanel() {
-  const body = document.getElementById('text-panel-body');
-  const layer = state.layers.find(l => l.id === state.selectedLayer);
-  if (!layer || (layer.type !== 'text' && layer.type !== 'cta' && layer.type !== 'badge')) {
-    body.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px 0;">Выбери текстовый слой</div>';
-    return;
-  }
-
-  body.innerHTML = `
-    <div class="field">
-      <label>Текст</label>
-      <textarea id="t-text" rows="3">${layer.text}</textarea>
-    </div>
-    <div class="field row2">
-      <div>
-        <label>Размер</label>
-        <input type="number" id="t-size" value="${layer.fontSize}" min="8" max="200">
-      </div>
-      <div>
-        <label>Жирность</label>
-        <select id="t-weight">
-          <option value="normal" ${layer.fontWeight === 'normal' ? 'selected' : ''}>Обычный</option>
-          <option value="bold" ${layer.fontWeight === 'bold' ? 'selected' : ''}>Жирный</option>
-          <option value="300" ${layer.fontWeight === '300' ? 'selected' : ''}>Тонкий</option>
-          <option value="600" ${layer.fontWeight === '600' ? 'selected' : ''}>Средний</option>
-          <option value="800" ${layer.fontWeight === '800' ? 'selected' : ''}>Очень жирный</option>
+// ── TEXT PANEL ──
+function buildTextPanel(){
+  const body=document.getElementById('text-body');
+  const l=S.sel&&S.sel!=='product'?S.layers.find(x=>x.id===S.sel):null;
+  if(!l){body.innerHTML='<div style="color:var(--text2);font-size:11px;padding:4px 0">Кликни на элемент в баннере</div>';return;}
+  body.innerHTML=`
+    <div class="field"><label>Текст</label><textarea id="ttx" rows="3">${l.text}</textarea></div>
+    <div class="g2">
+      <div class="field"><label>Размер</label><input type="number" id="tsz" value="${l.fontSize}" min="8" max="200"></div>
+      <div class="field"><label>Жирность</label>
+        <select id="tfw">
+          <option value="300" ${l.fontWeight==='300'?'selected':''}>Тонкий</option>
+          <option value="normal" ${l.fontWeight==='normal'?'selected':''}>Обычный</option>
+          <option value="600" ${l.fontWeight==='600'?'selected':''}>Средний</option>
+          <option value="bold" ${l.fontWeight==='bold'?'selected':''}>Жирный</option>
+          <option value="800" ${l.fontWeight==='800'?'selected':''}>Очень жирный</option>
         </select>
       </div>
     </div>
-    <div class="field">
-      <label>Цвет текста</label>
-      <input type="color" id="t-color" value="${layer.color}">
-    </div>
-    ${layer.type === 'cta' || layer.type === 'badge' ? `
-    <div class="field">
-      <label>Цвет фона кнопки</label>
-      <input type="color" id="t-bgcolor" value="${layer.bgColor || '#ffffff'}">
-    </div>` : ''}
-    <div class="field">
-      <label>Позиция X</label>
-      <div class="range-row">
-        <input type="range" id="t-x" min="0" max="${state.canvasW}" value="${layer.x}" oninput="updateTextPos()">
-        <span class="range-val" id="t-x-val">${layer.x}</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>Позиция Y</label>
-      <div class="range-row">
-        <input type="range" id="t-y" min="0" max="${state.canvasH}" value="${layer.y}" oninput="updateTextPos()">
-        <span class="range-val" id="t-y-val">${layer.y}</span>
-      </div>
-    </div>
-    <div class="toggle-row">
-      <span class="toggle-label">Тень</span>
-      <label class="toggle">
-        <input type="checkbox" id="t-shadow" ${layer.shadow ? 'checked' : ''} onchange="updateText()">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
+    <div class="field"><label>Цвет текста</label><input type="color" id="tcl" value="${l.color}"></div>
+    ${l.type==='cta'||l.type==='badge'?`<div class="field"><label>Цвет фона</label><input type="color" id="tbg" value="${l.bgColor||'#ffffff'}"></div>`:''}
+    ${l.type==='text'?`<div class="trow"><span class="tlabel">Тень текста</span><label class="tog"><input type="checkbox" id="tsh" ${l.shadow?'checked':''} onchange="updTxt()"><span class="tog-sl"></span></label></div>`:''}
+    <div style="margin-top:6px;color:var(--text2);font-size:10px">💡 Перетащи элемент прямо на баннере</div>
   `;
+  ['ttx','tsz','tfw','tcl','tbg'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('input',updTxt);});
+}
 
-  ['t-text','t-size','t-weight','t-color','t-bgcolor'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateText);
+function updTxt(){
+  const l=S.layers.find(x=>x.id===S.sel);if(!l)return;
+  const v=id=>{const e=document.getElementById(id);return e?e.value:null;};
+  const cb=id=>{const e=document.getElementById(id);return e?e.checked:null;};
+  if(v('ttx')!==null)l.text=v('ttx');
+  if(v('tsz')!==null)l.fontSize=parseInt(v('tsz'))||l.fontSize;
+  if(v('tfw')!==null)l.fontWeight=v('tfw');
+  if(v('tcl')!==null)l.color=v('tcl');
+  if(v('tbg')!==null)l.bgColor=v('tbg');
+  if(cb('tsh')!==null)l.shadow=cb('tsh');
+  render();
+}
+
+// ── PRODUCT ──
+function updP(){
+  S.prod.sc=parseInt(document.getElementById('ps').value);
+  S.prod.rot=parseInt(document.getElementById('pr').value);
+  document.getElementById('ps-v').textContent=S.prod.sc+'%';
+  document.getElementById('pr-v').textContent=S.prod.rot+'°';
+  render();
+}
+function flip(d){if(d==='h')S.prod.fh=!S.prod.fh;else S.prod.fv=!S.prod.fv;render();}
+
+// ── BG ──
+function updBg(){
+  S.bg.b=parseInt(document.getElementById('bb').value);
+  S.bg.c=parseInt(document.getElementById('bc').value);
+  S.bg.o=parseInt(document.getElementById('bo').value);
+  document.getElementById('bb-v').textContent=S.bg.b;
+  document.getElementById('bc-v').textContent=S.bg.c;
+  document.getElementById('bo-v').textContent=S.bg.o+'%';
+  render();
+}
+
+// ── PANELS ──
+function tp(n){document.getElementById('p-'+n).classList.toggle('closed');}
+
+// ── DOWNLOAD ──
+function downloadBanner(){
+  S.sel=null;render();
+  const fc=document.createElement('canvas');fc.width=S.W*2;fc.height=S.H*2;
+  fc.getContext('2d').drawImage(canvas,0,0,fc.width,fc.height);
+  const a=document.createElement('a');a.download='banner.png';a.href=fc.toDataURL('image/png');a.click();
+  toast('Баннер скачан ✅');
+}
+
+function resetAll(){
+  S.prod={x:0,y:0,sc:100,rot:0,fh:false,fv:false};
+  S.bg={b:100,c:100,o:25};
+  ['ps','pr','bb','bc','bo'].forEach(id=>{
+    const e=document.getElementById(id);
+    if(e)e.value={'ps':100,'pr':0,'bb':100,'bc':100,'bo':25}[id];
   });
+  updP();updBg();toast('Сброшено');
 }
 
-function updateText() {
-  const layer = state.layers.find(l => l.id === state.selectedLayer);
-  if (!layer) return;
-  const text = document.getElementById('t-text');
-  const size = document.getElementById('t-size');
-  const weight = document.getElementById('t-weight');
-  const color = document.getElementById('t-color');
-  const bgcolor = document.getElementById('t-bgcolor');
-  const shadow = document.getElementById('t-shadow');
-  if (text) layer.text = text.value;
-  if (size) layer.fontSize = parseInt(size.value) || layer.fontSize;
-  if (weight) layer.fontWeight = weight.value;
-  if (color) layer.color = color.value;
-  if (bgcolor) layer.bgColor = bgcolor.value;
-  if (shadow) layer.shadow = shadow.checked;
-  render();
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ── SIZE CANVAS TO FIT ──
+function sizeCanvas(){
+  const area=document.getElementById('carea');
+  const aH=area.clientHeight-48,aW=area.clientWidth-48;
+  const ratio=S.H/S.W;
+  const dW=Math.min(aW,aH/ratio);
+  canvas.style.width=dW+'px';canvas.style.height=(dW*ratio)+'px';
+  setTimeout(updSelBox,10);
 }
+window.addEventListener('resize',sizeCanvas);
 
-function updateTextPos() {
-  const layer = state.layers.find(l => l.id === state.selectedLayer);
-  if (!layer) return;
-  const x = document.getElementById('t-x');
-  const y = document.getElementById('t-y');
-  if (x) { layer.x = parseInt(x.value); document.getElementById('t-x-val').textContent = x.value; }
-  if (y) { layer.y = parseInt(y.value); document.getElementById('t-y-val').textContent = y.value; }
-  render();
-}
-
-// ══════════════════════════════════════════════
-// PRODUCT CONTROLS
-// ══════════════════════════════════════════════
-function updateProduct() {
-  state.product.x = parseInt(document.getElementById('prod-x').value);
-  state.product.y = parseInt(document.getElementById('prod-y').value);
-  state.product.scale = parseInt(document.getElementById('prod-scale').value);
-  state.product.rotate = parseInt(document.getElementById('prod-rotate').value);
-  document.getElementById('prod-x-val').textContent = state.product.x;
-  document.getElementById('prod-y-val').textContent = state.product.y;
-  document.getElementById('prod-scale-val').textContent = state.product.scale + '%';
-  document.getElementById('prod-rotate-val').textContent = state.product.rotate + '°';
-  render();
-}
-
-function flipProduct(dir) {
-  if (dir === 'h') state.product.flipH = !state.product.flipH;
-  else state.product.flipV = !state.product.flipV;
-  render();
-}
-
-// ══════════════════════════════════════════════
-// BG CONTROLS
-// ══════════════════════════════════════════════
-function updateBg() {
-  state.bgFilter.brightness = parseInt(document.getElementById('bg-brightness').value);
-  state.bgFilter.contrast = parseInt(document.getElementById('bg-contrast').value);
-  state.bgFilter.overlay = parseInt(document.getElementById('bg-overlay').value);
-  document.getElementById('bg-brightness-val').textContent = state.bgFilter.brightness;
-  document.getElementById('bg-contrast-val').textContent = state.bgFilter.contrast;
-  document.getElementById('bg-overlay-val').textContent = state.bgFilter.overlay + '%';
-  render();
-}
-
-// ══════════════════════════════════════════════
-// DRAG TO MOVE PRODUCT
-// ══════════════════════════════════════════════
-canvas.addEventListener('mousedown', e => {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = state.canvasW / rect.width;
-  const scaleY = state.canvasH / rect.height;
-  const mx = (e.clientX - rect.left) * scaleX;
-  const my = (e.clientY - rect.top) * scaleY;
-  state.dragging = true;
-  state.dragStart = { x: mx, y: my };
-  state.dragLayerStart = { x: state.product.x, y: state.product.y };
-  canvas.style.cursor = 'grabbing';
-});
-
-canvas.addEventListener('mousemove', e => {
-  if (!state.dragging) return;
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = state.canvasW / rect.width;
-  const scaleY = state.canvasH / rect.height;
-  const mx = (e.clientX - rect.left) * scaleX;
-  const my = (e.clientY - rect.top) * scaleY;
-  state.product.x = state.dragLayerStart.x + (mx - state.dragStart.x);
-  state.product.y = state.dragLayerStart.y + (my - state.dragStart.y);
-  document.getElementById('prod-x').value = Math.round(state.product.x);
-  document.getElementById('prod-y').value = Math.round(state.product.y);
-  document.getElementById('prod-x-val').textContent = Math.round(state.product.x);
-  document.getElementById('prod-y-val').textContent = Math.round(state.product.y);
-  render();
-});
-
-canvas.addEventListener('mouseup', () => { state.dragging = false; canvas.style.cursor = 'default'; });
-canvas.addEventListener('mouseleave', () => { state.dragging = false; canvas.style.cursor = 'default'; });
-
-// Touch support
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  const t = e.touches[0];
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = state.canvasW / rect.width;
-  const scaleY = state.canvasH / rect.height;
-  state.dragging = true;
-  state.dragStart = { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY };
-  state.dragLayerStart = { x: state.product.x, y: state.product.y };
-}, { passive: false });
-
-canvas.addEventListener('touchmove', e => {
-  if (!state.dragging) return;
-  e.preventDefault();
-  const t = e.touches[0];
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = state.canvasW / rect.width;
-  const scaleY = state.canvasH / rect.height;
-  state.product.x = state.dragLayerStart.x + ((t.clientX - rect.left) * scaleX - state.dragStart.x);
-  state.product.y = state.dragLayerStart.y + ((t.clientY - rect.top) * scaleY - state.dragStart.y);
-  render();
-}, { passive: false });
-
-canvas.addEventListener('touchend', () => { state.dragging = false; });
-
-// ══════════════════════════════════════════════
-// UTILS
-// ══════════════════════════════════════════════
-function togglePanel(name) {
-  document.getElementById(`panel-${name}`).classList.toggle('collapsed');
-}
-
-function resetChanges() {
-  state.product = { x: 0, y: 0, scale: 100, rotate: 0, flipH: false, flipV: false };
-  state.bgFilter = { brightness: 100, contrast: 100, overlay: 30 };
-  document.getElementById('prod-x').value = 0;
-  document.getElementById('prod-y').value = 0;
-  document.getElementById('prod-scale').value = 100;
-  document.getElementById('prod-rotate').value = 0;
-  document.getElementById('bg-brightness').value = 100;
-  document.getElementById('bg-contrast').value = 100;
-  document.getElementById('bg-overlay').value = 30;
-  updateProduct();
-  updateBg();
-  showToast('Изменения сброшены');
-}
-
-function downloadBanner() {
-  // Рендерим в полном разрешении
-  const fullCanvas = document.createElement('canvas');
-  fullCanvas.width = state.canvasW * 2;
-  fullCanvas.height = state.canvasH * 2;
-  const fctx = fullCanvas.getContext('2d');
-  fctx.scale(2, 2);
-  fctx.drawImage(canvas, 0, 0, state.canvasW, state.canvasH);
-
-  const link = document.createElement('a');
-  link.download = 'banner.png';
-  link.href = fullCanvas.toDataURL('image/png');
-  link.click();
-  showToast('Баннер скачан! ✅');
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-// ══════════════════════════════════════════════
-// DEMO MODE (если нет параметров)
-// ══════════════════════════════════════════════
-function loadDemo() {
-  state.canvasW = 540;
-  state.canvasH = 960;
-  canvas.width = state.canvasW;
-  canvas.height = state.canvasH;
-
-  state.layers = [
-    { id: 'badge', type: 'badge', name: 'Бейдж', text: 'Акция', x: 54, y: 30, fontSize: 16, fontWeight: '700', color: '#fff', bgColor: '#dc2626', visible: true },
-    { id: 'headline', type: 'text', name: 'Заголовок', text: 'Лучшее образование для детей', x: 54, y: 70, fontSize: 52, fontWeight: 'bold', color: '#ffffff', visible: true, shadow: true },
-    { id: 'sub', type: 'text', name: 'Подзаголовок', text: 'Скидка 20% на первый месяц', x: 54, y: 230, fontSize: 22, fontWeight: 'normal', color: '#eeeeee', visible: true, shadow: true },
-    { id: 'bullet_0', type: 'text', name: 'Буллет 1', text: '— Подготовка к школе', x: 54, y: 680, fontSize: 20, fontWeight: 'normal', color: '#dddddd', visible: true, shadow: true },
-    { id: 'bullet_1', type: 'text', name: 'Буллет 2', text: '— Продлёнка', x: 54, y: 716, fontSize: 20, fontWeight: 'normal', color: '#dddddd', visible: true, shadow: true },
-    { id: 'bullet_2', type: 'text', name: 'Буллет 3', text: '— Репетиторы', x: 54, y: 752, fontSize: 20, fontWeight: 'normal', color: '#dddddd', visible: true, shadow: true },
-    { id: 'cta', type: 'cta', name: 'Кнопка CTA', text: 'Узнать цену', x: state.canvasW / 2, y: state.canvasH - 80, fontSize: 22, fontWeight: '600', color: '#111', bgColor: '#ffffff', visible: true },
-  ];
-
-  document.getElementById('status-size').textContent = '1080×1920px';
-  buildLayersList();
-  render();
-}
-
-// ══════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════
-const hasParams = window.location.search.includes('headline') ||
-                  window.location.search.includes('bg');
-
-if (hasParams) {
-  loadFromParams();
-} else {
-  loadDemo();
-}
+// ── START ──
+const hasData=location.search.includes('headline')||location.search.includes('bg');
+if(hasData)loadFromParams();else loadDemo();
+sizeCanvas();
 </script>
 </body>
 </html>
