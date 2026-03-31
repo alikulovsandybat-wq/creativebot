@@ -91,18 +91,22 @@ async def handle_health(request):
 
 
 async def handle_output_file(request):
-    """Отдаёт сгенерированные файлы (фон, продукт) для редактора."""
+    """Отдаёт сгенерированные файлы для редактора."""
+    user_id = request.match_info.get("user_id", "")
     filename = request.match_info.get("filename", "")
-    # Ищем файл в tmp директориях
+
     search_dirs = [
-        "/tmp/creative_outputs",
-        "/tmp/creative_temp",
+        f"/tmp/creative_outputs/{user_id}",
+        f"/tmp/creative_temp",
+        f"/tmp/creative_outputs",
     ]
     for d in search_dirs:
-        for root, dirs, files in os.walk(d):
-            if filename in files:
-                filepath = os.path.join(root, filename)
-                return web.FileResponse(filepath)
+        filepath = os.path.join(d, filename)
+        if os.path.exists(filepath):
+            # CORS для редактора
+            resp = web.FileResponse(filepath)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            return resp
     return web.Response(text="File not found", status=404)
 
 
@@ -113,6 +117,7 @@ async def start_web_server():
     app.router.add_get("/health", handle_health)
     app.router.add_get("/editor", handle_editor)
     app.router.add_get("/editor.html", handle_editor)
+    app.router.add_get("/files/{user_id}/{filename}", handle_output_file)
     app.router.add_get("/files/{filename}", handle_output_file)
 
     # Статические файлы если папка есть
