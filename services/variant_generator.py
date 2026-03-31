@@ -74,15 +74,17 @@ async def generate_variants(plan: CreativePlan,
             obj_img.save(prod_path, "PNG")
             result_paths["product"] = prod_path
 
-            # Компонуем
-            bg_img = Image.open(bg_path).convert("RGB")
-            composite = _composite(bg_img, obj_img, layout)
-            composite = ImageEnhance.Contrast(composite).enhance(1.05)
-            if canvas_size != DEFAULT_CANVAS:
-                composite = composite.resize(canvas_size, Image.LANCZOS)
+            # Компонуем через transform_image с умным выбором инструмента
+            from services.image_transformer import transform_image
+            comp_path = await transform_image(
+                source_image_path, bg_prompt,
+                layout=layout, niche=niche
+            )
 
-            comp_path = os.path.join(output_dir, f"composite_{layout}.png")
-            composite.save(comp_path, "PNG", quality=95)
+            if canvas_size != DEFAULT_CANVAS:
+                img = Image.open(comp_path)
+                img = img.resize(canvas_size, Image.LANCZOS)
+                img.save(comp_path, "PNG", quality=95)
 
         else:
             # ── РЕЖИМ БЕЗ ФОТО ──

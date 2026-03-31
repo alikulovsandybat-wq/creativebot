@@ -12,22 +12,25 @@ client = AsyncOpenAI()
 
 CANVAS_SIZE = (1080, 1920)
 
+# Ниши где Photoroom лучше — органичная сцена с тенями
+PHOTOROOM_NICHES = ["auto", "auto_parts", "tech", "home", "food", "health", "medical"]
+# Ниши где DALL-E лучше — красивый градиентный фон
+DALLE_NICHES = ["beauty", "flowers", "perfume", "fashion", "kids",
+                "psychology", "legal", "education", "kids_education",
+                "photo", "travel", "realestate", "universal"]
+
 
 # ═══════════════════════════════════════════════
-# PHOTOROOM API — органичное наложение продукта
+# PHOTOROOM API
 # ═══════════════════════════════════════════════
 
-async def photoroom_generate_scene(source_path: str, scene_prompt: str) -> Image.Image:
+async def photoroom_generate_scene(source_path: str, scene_prompt: str) -> Image.Image | None:
     """
-    Photoroom Image Editing API:
-    - Вырезает продукт
-    - Генерирует сцену по промпту
-    - Добавляет тени и освещение автоматически
-    Возвращает готовое изображение с продуктом в сцене.
+    Photoroom Image Editing API v2 (Pro план).
+    Вырезает продукт + генерирует сцену + добавляет тени.
     """
     api_key = os.getenv("PHOTOROOM_API_KEY", "")
     if not api_key:
-        logger.warning("PHOTOROOM_API_KEY not set, falling back")
         return None
 
     try:
@@ -35,121 +38,105 @@ async def photoroom_generate_scene(source_path: str, scene_prompt: str) -> Image
             image_data = f.read()
 
         async with aiohttp.ClientSession() as session:
-            data = aiohttp.FormData()
-            data.add_field(
-                "imageFile", image_data,
-                filename="product.jpg",
-                content_type="image/jpeg"
-            )
-            # Промпт сцены — Photoroom генерирует фон вокруг продукта
-            data.add_field("background.prompt", scene_prompt)
-            # Автоматические тени
-            data.add_field("shadow.mode", "ai.soft")
-            # Формат вывода
-            data.add_field("outputSize", "1080x1920")
-            data.add_field("outputFormat", "png")
+            form = aiohttp.FormData()
+            form.add_field("imageFile", image_data,
+                           filename="product.jpg", content_type="image/jpeg")
+            form.add_field("background.prompt", scene_prompt)
+            form.add_field("shadow.mode", "ai.soft")
+            form.add_field("outputFormat", "png")
 
             async with session.post(
                 "https://image-api.photoroom.com/v2/edit",
-                headers={"x-api-key": api_key},
-                data=data
+                headers={"x-api-key": api_key, "Accept": "image/png"},
+                data=form
             ) as resp:
                 if resp.status == 200:
-                    result = await resp.read()
-                    img = Image.open(io.BytesIO(result)).convert("RGBA")
-                    logger.info("Photoroom: scene generated ✅")
+                    data = await resp.read()
+                    img = Image.open(io.BytesIO(data)).convert("RGBA")
+                    logger.info("Photoroom scene generated ✅")
                     return img
                 else:
                     error = await resp.text()
-                    logger.error(f"Photoroom error {resp.status}: {error}")
+                    logger.error(f"Photoroom scene error {resp.status}: {error}")
                     return None
 
     except Exception as e:
-        logger.error(f"Photoroom API failed: {e}")
+        logger.error(f"Photoroom scene failed: {e}")
         return None
 
 
-async def photoroom_remove_bg(source_path: str) -> Image.Image:
-    """
-    Photoroom Remove Background API (Basic план).
-    Используется как fallback если scene generation недоступна.
-    """
+async def photoroom_remove_bg(source_path: str) -> Image.Image | None:
+    """Photoroom Remove Background (работает на всех планах)."""
     api_key = os.getenv("PHOTOROOM_API_KEY", "")
     if not api_key:
-        return await asyncio.to_thread(_remove_bg_local, source_path)
+        return None
 
     try:
         with open(source_path, "rb") as f:
             image_data = f.read()
 
         async with aiohttp.ClientSession() as session:
-            data = aiohttp.FormData()
-            data.add_field(
-                "imageFile", image_data,
-                filename="product.jpg",
-                content_type="image/jpeg"
-            )
+            form = aiohttp.FormData()
+            form.add_field("imageFile", image_data,
+                           filename="product.jpg", content_type="image/jpeg")
 
             async with session.post(
                 "https://image-api.photoroom.com/v1/segment",
-                headers={"x-api-key": api_key},
-                data=data
+                headers={"x-api-key": api_key, "Accept": "image/png"},
+                data=form
             ) as resp:
                 if resp.status == 200:
-                    result = await resp.read()
-                    img = Image.open(io.BytesIO(result)).convert("RGBA")
+                    data = await resp.read()
+                    img = Image.open(io.BytesIO(data)).convert("RGBA")
                     logger.info("Photoroom remove bg ✅")
                     return img
                 else:
                     error = await resp.text()
                     logger.error(f"Photoroom remove bg error {resp.status}: {error}")
-                    return await asyncio.to_thread(_remove_bg_local, source_path)
+                    return None
 
     except Exception as e:
         logger.error(f"Photoroom remove bg failed: {e}")
-        return await asyncio.to_thread(_remove_bg_local, source_path)
+        return None
 
 
 # ═══════════════════════════════════════════════
-# REMOVE.BG FALLBACK
+# REMOVE BACKGROUND — умный fallback цепочка
 # ═══════════════════════════════════════════════
 
 async def remove_background_api(source_path: str) -> Image.Image:
-    """
-    Пробует Photoroom сначала, потом remove.bg, потом локальный rembg.
-    """
-    # Сначала Photoroom
-    photoroom_key = os.getenv("PHOTOROOM_API_KEY", "")
-    if photoroom_key:
-        result = await photoroom_remove_bg(source_path)
-        if result:
-            return result
+    """Photoroom → remove.bg → rembg локальный."""
 
-    # Потом remove.bg
+    # 1. Photoroom
+    result = await photoroom_remove_bg(source_path)
+    if result:
+        return result
+
+    # 2. remove.bg
     removebg_key = os.getenv("REMOVEBG_API_KEY", "")
     if removebg_key:
         try:
             with open(source_path, "rb") as f:
                 image_data = f.read()
             async with aiohttp.ClientSession() as session:
-                data = aiohttp.FormData()
-                data.add_field("image_file", image_data,
-                               filename="image.jpg",
-                               content_type="image/jpeg")
-                data.add_field("size", "auto")
+                form = aiohttp.FormData()
+                form.add_field("image_file", image_data,
+                               filename="image.jpg", content_type="image/jpeg")
+                form.add_field("size", "auto")
                 async with session.post(
                     "https://api.remove.bg/v1.0/removebg",
                     headers={"X-Api-Key": removebg_key},
-                    data=data
+                    data=form
                 ) as resp:
                     if resp.status == 200:
-                        result_data = await resp.read()
-                        img = Image.open(io.BytesIO(result_data)).convert("RGBA")
+                        data = await resp.read()
+                        img = Image.open(io.BytesIO(data)).convert("RGBA")
                         logger.info("remove.bg ✅")
                         return img
         except Exception as e:
             logger.error(f"remove.bg failed: {e}")
 
+    # 3. Локальный rembg
     return await asyncio.to_thread(_remove_bg_local, source_path)
 
 
@@ -165,12 +152,11 @@ def _remove_bg_local(source_path: str) -> Image.Image:
 
 
 # ═══════════════════════════════════════════════
-# ГЕНЕРАЦИЯ ФОНА (DALL-E)
+# DALL-E ФОН
 # ═══════════════════════════════════════════════
 
 async def generate_background(bg_prompt: str, layout: str = "A") -> str:
-    """Генерирует фон через DALL-E 3."""
-    logger.info(f"Generating DALL-E background, layout={layout}")
+    logger.info(f"Generating DALL-E background layout={layout}")
     response = await client.images.generate(
         model="dall-e-3",
         prompt=bg_prompt,
@@ -190,20 +176,31 @@ async def _download_image(url: str, save_path: str):
 
 
 # ═══════════════════════════════════════════════
-# COMPOSITE — наложение продукта на фон
+# COVER FIT — умный ресайз без полос
+# ═══════════════════════════════════════════════
+
+def _cover_fit(img: Image.Image, target_size: tuple) -> Image.Image:
+    """Заполняет canvas без искажений, обрезает по центру."""
+    tw, th = target_size
+    iw, ih = img.size
+    scale = max(tw / iw, th / ih)
+    new_w, new_h = int(iw * scale), int(ih * scale)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    left = (new_w - tw) // 2
+    top = (new_h - th) // 2
+    return img.crop((left, top, left + tw, top + th))
+
+
+# ═══════════════════════════════════════════════
+# COMPOSITE — Pillow наложение
 # ═══════════════════════════════════════════════
 
 def _composite(bg: Image.Image, obj: Image.Image, layout: str = "A") -> Image.Image:
-    """Накладывает вырезанный продукт на фон с тенью."""
     W, H = CANVAS_SIZE
     bg = bg.resize((W, H), Image.LANCZOS)
 
-    if layout == "C":
-        max_obj_w = int(W * 0.50)
-        max_obj_h = int(H * 0.45)
-    else:
-        max_obj_w = int(W * 0.80)
-        max_obj_h = int(H * 0.45)
+    max_obj_w = int(W * 0.50) if layout == "C" else int(W * 0.80)
+    max_obj_h = int(H * 0.45)
 
     ratio = obj.width / obj.height
     if obj.width / max_obj_w > obj.height / max_obj_h:
@@ -211,26 +208,21 @@ def _composite(bg: Image.Image, obj: Image.Image, layout: str = "A") -> Image.Im
     else:
         new_h = max_obj_h; new_w = int(max_obj_h * ratio)
 
-    obj_resized = obj.resize((new_w, new_h), Image.LANCZOS)
+    obj_r = obj.resize((new_w, new_h), Image.LANCZOS)
 
-    if layout == "A":
-        ox = (W - new_w) // 2; oy = int(H * 0.55) - new_h // 2
-    elif layout == "B":
-        ox = (W - new_w) // 2; oy = int(H * 0.70) - new_h // 2
-    elif layout == "C":
-        ox = int(W * 0.50); oy = int(H * 0.55) - new_h // 2
-    else:
-        ox = (W - new_w) // 2; oy = int(H * 0.55) - new_h // 2
+    if layout == "A":   ox = (W-new_w)//2; oy = int(H*0.55) - new_h//2
+    elif layout == "B": ox = (W-new_w)//2; oy = int(H*0.70) - new_h//2
+    elif layout == "C": ox = int(W*0.50);  oy = int(H*0.55) - new_h//2
+    else:               ox = (W-new_w)//2; oy = int(H*0.55) - new_h//2
 
-    # Тень
-    sh_h = max(int(new_h * 0.04), 20)
-    shadow = Image.new("RGBA", (new_w, sh_h), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).ellipse([new_w//6, 0, new_w*5//6, sh_h], fill=(0, 0, 0, 50))
+    sh_h = max(int(new_h*0.04), 20)
+    shadow = Image.new("RGBA", (new_w, sh_h), (0,0,0,0))
+    ImageDraw.Draw(shadow).ellipse([new_w//6, 0, new_w*5//6, sh_h], fill=(0,0,0,50))
     shadow = shadow.filter(ImageFilter.GaussianBlur(radius=12))
 
     result = bg.convert("RGBA")
-    result.paste(shadow, (ox, oy + new_h - sh_h // 2), shadow)
-    result.paste(obj_resized, (ox, oy), obj_resized)
+    result.paste(shadow, (ox, oy + new_h - sh_h//2), shadow)
+    result.paste(obj_r, (ox, oy), obj_r)
     return ImageEnhance.Contrast(result.convert("RGB")).enhance(1.05)
 
 
@@ -241,41 +233,37 @@ def _composite(bg: Image.Image, obj: Image.Image, layout: str = "A") -> Image.Im
 async def transform_image(source_path: str,
                           bg_prompt: str,
                           layout: str = "A",
-                          ad_text: str = "") -> str:
+                          ad_text: str = "",
+                          niche: str = "universal") -> str:
     """
-    Главная функция обработки изображения.
-
-    Если есть PHOTOROOM_API_KEY с Plus планом:
-      → Photoroom генерирует сцену сразу (продукт + фон + тени)
-
-    Если только Basic Photoroom или нет ключа:
-      → remove.bg + DALL-E + Pillow composite
+    Умно выбирает инструмент по нише:
+    - Photoroom → авто, техника, еда, дом (органичная сцена с тенями)
+    - DALL-E + remove bg → красота, цветы, парфюм (красивый фон)
     """
-    logger.info(f"transform_image: layout={layout}, source={source_path}")
+    logger.info(f"transform_image: niche={niche}, layout={layout}")
     out_dir = os.path.dirname(source_path)
+    if not out_dir:
+        out_dir = "/tmp/creative_temp"
+    os.makedirs(out_dir, exist_ok=True)
+
+    photoroom_key = os.getenv("PHOTOROOM_API_KEY", "")
+    use_photoroom = niche in PHOTOROOM_NICHES and bool(photoroom_key)
 
     try:
-        photoroom_key = os.getenv("PHOTOROOM_API_KEY", "")
-
-        if photoroom_key:
-            # ── PHOTOROOM PLUS: органичная сцена одним вызовом ──
-            logger.info("Using Photoroom scene generation")
+        if use_photoroom:
+            # ── PHOTOROOM: органичная сцена ──
+            logger.info(f"→ Photoroom scene (niche={niche})")
             scene_img = await photoroom_generate_scene(source_path, bg_prompt)
-
             if scene_img:
-                # Ресайз до нашего canvas
-                scene_img = scene_img.convert("RGB")
-                scene_img = scene_img.resize(CANVAS_SIZE, Image.LANCZOS)
+                result = _cover_fit(scene_img.convert("RGB"), CANVAS_SIZE)
                 out_path = os.path.join(out_dir, f"composite_{layout}.png")
-                scene_img.save(out_path, "PNG", quality=95)
-                logger.info(f"Photoroom scene saved: {out_path} ✅")
+                result.save(out_path, "PNG", quality=95)
+                logger.info(f"Photoroom scene saved ✅")
                 return out_path
-            else:
-                logger.warning("Photoroom scene failed, falling back to DALL-E")
+            logger.warning("Photoroom scene failed → DALL-E fallback")
 
-        # ── FALLBACK: remove.bg + DALL-E + Pillow ──
-        logger.info("Using DALL-E + remove.bg composite")
-
+        # ── DALL-E + remove bg ──
+        logger.info(f"→ DALL-E composite (niche={niche})")
         bg_url_coro = generate_background(bg_prompt, layout)
         obj_coro = remove_background_api(source_path)
         bg_url, obj_img = await asyncio.gather(bg_url_coro, obj_coro)
@@ -287,7 +275,7 @@ async def transform_image(source_path: str,
         result = _composite(bg_img, obj_img, layout)
         out_path = os.path.join(out_dir, f"composite_{layout}.png")
         result.save(out_path, "PNG", quality=95)
-        logger.info(f"Composite saved: {out_path} ✅")
+        logger.info(f"DALL-E composite saved ✅")
         return out_path
 
     except Exception as e:
@@ -333,8 +321,8 @@ def _fallback_sync(source_path, layout):
     if source_path and os.path.exists(source_path):
         src = Image.open(source_path).convert("RGB")
         ratio = src.width / src.height
-        new_h = int(H * 0.45); new_w = min(int(new_h * ratio), W)
-        new_h = int(new_w / ratio)
+        new_h = int(H*0.45); new_w = min(int(new_h*ratio), W)
+        new_h = int(new_w/ratio)
         src = src.resize((new_w, new_h), Image.LANCZOS)
         bg.paste(src, ((W-new_w)//2, int(H*0.55)-new_h//2))
     out_dir = "/tmp/creative_temp"
