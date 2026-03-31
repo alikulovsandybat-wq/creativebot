@@ -5,154 +5,114 @@ import logging
 from models.creative import CreativePlan
 from services.layout_renderer import render_banner
 from services.image_transformer import (
-    _generate_background, _download_image,
-    _get_decoration_hint, _analyze_subject,
-    generate_image_from_text, _composite,
-    _generate_background_from_prompt
+    remove_background_api,
+    generate_background,
+    generate_image_from_text,
+    _download_image,
+    _composite,
+    CANVAS_SIZE as DEFAULT_CANVAS,
 )
 from PIL import Image, ImageEnhance
 
 logger = logging.getLogger(__name__)
-STYLES = ["minimal", "conversion", "premium"]
 
-
-def _remove_bg(source_path: str) -> Image.Image:
-    try:
-        from rembg import remove
-        with open(source_path, "rb") as f:
-            result = remove(f.read())
-        import io
-        return Image.open(io.BytesIO(result)).convert("RGBA")
-    except Exception as e:
-        logger.warning(f"rembg unavailable: {e}")
-        return Image.open(source_path).convert("RGBA")
+# Один стиль темы — определяется по brand_style пользователя
+# minimal / conversion / premium — маппинг из brand_style
+BRAND_TO_STYLE = {
+    "delicate": "minimal",
+    "cozy": "minimal",
+    "universal": "minimal",
+    "bold": "conversion",
+    "premium_brand": "premium",
+}
 
 
 async def generate_variants(plan: CreativePlan,
-                            source_image_path: str = None,
-                            output_dir: str = "/tmp/creative_outputs",
-                            ad_text: str = "",
-                            send_callback=None,
-                            replace_bg: bool = False) -> list[str]:
+                             source_image_path: str = None,
+                             output_dir: str = "/tmp/creative_outputs",
+                             ad_text: str = "",
+                             send_callback=None,
+                             layout: str = "A",
+                             canvas_size: tuple = None) -> list[str]:
+    """
+    Генерирует один баннер (не три) согласно выбранному layout и формату.
+
+    layout: "A", "B", "C"
+    canvas_size: (1080, 1080) для квадрата или (1080, 1920) для Stories
+    """
     os.makedirs(output_dir, exist_ok=True)
+
+    # Определяем размер canvas
+    if canvas_size is None:
+        canvas_size = DEFAULT_CANVAS
+
+    # Определяем стиль темы из brand_style
+    brand_style = getattr(plan, "brand_style", "universal")
+    theme_style = BRAND_TO_STYLE.get(brand_style, "minimal")
+
+    # Берём промпт фона из плана (уже определён в creative_planner)
+    bg_prompt = getattr(plan, "bg_prompt", "")
+    niche = getattr(plan, "niche", "universal")
+
+    logger.info(f"generate_variants: layout={layout}, canvas={canvas_size}, "
+                f"niche={niche}, theme={theme_style}")
+
     output_paths = []
 
-    labels = {
-        "minimal": "🤍 Minimal",
-        "conversion": "🎯 Conversion",
-        "premium": "✨ Premium"
-    }
+    try:
+        if source_image_path and os.path.exists(source_image_path):
+            # ── РЕЖИМ С ФОТО ──
+            # Параллельно: remove.bg + генерация фона
+            logger.info("Mode: photo + background")
 
-    if source_image_path and os.path.exists(source_image_path):
+            bg_url_coro = generate_background(bg_prompt, layout)
+            obj_coro = remove_background_api(source_image_path)
+            bg_url, obj_img = await asyncio.gather(bg_url_coro, obj_coro)
 
-        if replace_bg:
-            # Режим замены фона — rembg + DALL-E
-            subject_desc = await _analyze_subject(source_image_path)
-            logger.info(f"Replace BG mode. Subject: {subject_desc}")
+            # Скачиваем фон
+            bg_path = os.path.join(output_dir, f"bg_{layout}.png")
+            await _download_image(bg_url, bg_path)
+            bg_img = Image.open(bg_path).convert("RGB")
 
-            logger.info("Removing background...")
-            obj_img = await asyncio.to_thread(_remove_bg, source_path=source_image_path)
-            logger.info("Background removed ✅")
+            # Компонуем фон + продукт
+            result = _composite(bg_img, obj_img, layout)
+            result = ImageEnhance.Contrast(result).enhance(1.05)
 
-            # Карта промптов по стилям
-            bg_prompts = {
-                "minimal": getattr(plan, "bg_minimal", ""),
-                "conversion": getattr(plan, "bg_conversion", ""),
-                "premium": getattr(plan, "bg_premium", ""),
-            }
+            # Ресайз под нужный canvas если квадрат
+            if canvas_size != DEFAULT_CANVAS:
+                result = result.resize(canvas_size, Image.LANCZOS)
 
-            for style in STYLES:
-                try:
-                    logger.info(f"Generating {style}...")
-                    bg_prompt = bg_prompts.get(style, "")
-
-                    if bg_prompt:
-                        # Используем смысловой промпт от GPT
-                        bg_url = await _generate_background_from_prompt(
-                            bg_prompt, style, ""
-                        )
-                    else:
-                        # Fallback
-                        bg_url = await _generate_background(
-                            style, subject_desc, ""
-                        )
-                    bg_path = os.path.join(output_dir, f"bg_{style}.png")
-                    await _download_image(bg_url, bg_path)
-                    bg_img = Image.open(bg_path).convert("RGB")
-
-                    result = _composite(bg_img, obj_img, (1080, 1080))
-                    result = ImageEnhance.Contrast(result).enhance(1.03)
-                    comp_path = os.path.join(output_dir, f"composite_{style}.png")
-                    result.save(comp_path, "PNG", quality=95)
-
-                    variant = copy.deepcopy(plan)
-                    variant.style = style
-                    out_path = os.path.join(output_dir, f"banner_{style}.png")
-                    await asyncio.to_thread(render_banner, variant, comp_path, out_path)
-                    output_paths.append(out_path)
-                    logger.info(f"Done: {style} ✅")
-
-                    if send_callback and os.path.exists(out_path):
-                        await send_callback(out_path, labels[style])
-                except Exception as e:
-                    logger.error(f"Failed {style}: {e}", exc_info=True)
+            comp_path = os.path.join(output_dir, f"composite_{layout}.png")
+            result.save(comp_path, "PNG", quality=95)
 
         else:
-            # Режим сохранения фото — просто накладываем текст
-            logger.info("Keep photo mode — overlay text only")
-            for style in STYLES:
-                try:
-                    variant = copy.deepcopy(plan)
-                    variant.style = style
-                    out_path = os.path.join(output_dir, f"banner_{style}.png")
-                    await asyncio.to_thread(
-                        render_banner, variant, source_image_path, out_path
-                    )
-                    output_paths.append(out_path)
-                    logger.info(f"Done: {style} ✅")
+            # ── РЕЖИМ БЕЗ ФОТО ──
+            logger.info("Mode: background only (no photo)")
 
-                    if send_callback and os.path.exists(out_path):
-                        await send_callback(out_path, labels[style])
-                except Exception as e:
-                    logger.error(f"Failed {style}: {e}", exc_info=True)
+            comp_path = await generate_image_from_text(bg_prompt, layout)
 
-    else:
-        logger.info("No photo — generating from text")
+            # Ресайз под нужный canvas если квадрат
+            if canvas_size != DEFAULT_CANVAS:
+                img = Image.open(comp_path)
+                img = img.resize(canvas_size, Image.LANCZOS)
+                img.save(comp_path, "PNG", quality=95)
 
-        # Карта промптов по стилям
-        bg_prompts = {
-            "minimal": getattr(plan, "bg_minimal", ""),
-            "conversion": getattr(plan, "bg_conversion", ""),
-            "premium": getattr(plan, "bg_premium", ""),
-        }
+        # ── РЕНДЕР ТЕКСТА ──
+        variant = copy.deepcopy(plan)
+        variant.style = theme_style
 
-        for style in STYLES:
-            try:
-                bg_prompt = bg_prompts.get(style, "")
+        out_path = os.path.join(output_dir, f"banner_{layout}.png")
+        await asyncio.to_thread(
+            render_banner, variant, comp_path, out_path, layout
+        )
+        output_paths.append(out_path)
+        logger.info(f"Banner ready: {out_path} ✅")
 
-                if bg_prompt:
-                    bg_url = await _generate_background_from_prompt(
-                        bg_prompt, style, ""
-                    )
-                    bg_path = os.path.join(output_dir, f"bg_text_{style}.png")
-                    await _download_image(bg_url, bg_path)
-                    img = Image.open(bg_path).resize((1080, 1080), Image.LANCZOS)
-                    img.save(bg_path, "PNG", quality=95)
-                else:
-                    bg_path = await generate_image_from_text(
-                        ad_text or plan.headline, style
-                    )
+        if send_callback and os.path.exists(out_path):
+            fmt_label = "⬛ Квадрат" if canvas_size == (1080, 1080) else "📱 Stories"
+            await send_callback(out_path, f"Layout {layout} · {fmt_label}")
 
-                variant = copy.deepcopy(plan)
-                variant.style = style
-                out_path = os.path.join(output_dir, f"banner_{style}.png")
-                await asyncio.to_thread(render_banner, variant, bg_path, out_path)
-                output_paths.append(out_path)
-
-                if send_callback and os.path.exists(out_path):
-                    await send_callback(out_path, labels[style])
-
-            except Exception as e:
-                logger.error(f"Failed {style}: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"generate_variants failed: {e}", exc_info=True)
 
     return output_paths
