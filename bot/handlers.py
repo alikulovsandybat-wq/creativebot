@@ -246,6 +246,11 @@ async def _generate_and_send(message: Message, state: FSMContext):
         editor_url = None
         try:
             import urllib.parse
+            # Ищем сгенерированные файлы
+            bg_file = os.path.join(output_dir, f"bg_{layout}.png")
+            comp_file = os.path.join(output_dir, f"composite_{layout}.png")
+            prod_file = os.path.join(output_dir, f"bg_{layout}.png")  # фон без продукта
+
             params = {
                 "fmt": "square" if canvas_size == (1080, 1080) else "stories",
                 "headline": plan.headline or "",
@@ -255,6 +260,15 @@ async def _generate_and_send(message: Message, state: FSMContext):
                 "cta": plan.cta or "",
                 "bullets": "|".join(plan.bullets or []),
             }
+            # Добавляем фон если файл существует
+            if os.path.exists(bg_file):
+                bg_fname = os.path.basename(bg_file)
+                params["bg"] = f"{EDITOR_BASE_URL}/files/{message.from_user.id}/{bg_fname}"
+            # Добавляем продукт если есть фото пользователя
+            if image_path and os.path.exists(image_path):
+                prod_fname = os.path.basename(image_path)
+                params["product"] = f"{EDITOR_BASE_URL}/files/{message.from_user.id}/{prod_fname}"
+
             query = urllib.parse.urlencode(params)
             editor_url = f"{EDITOR_BASE_URL}/editor?{query}"
         except Exception as e:
