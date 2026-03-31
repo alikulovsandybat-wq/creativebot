@@ -21,6 +21,8 @@ dp = Dispatcher(storage=MemoryStorage())
 
 class CreativeFlow(StatesGroup):
     choosing_brand_style = State()
+    choosing_format = State()        # НОВЫЙ ШАГ: квадрат или stories
+    choosing_layout = State()        # НОВЫЙ ШАГ: layout A, B или C
     waiting_for_photo_or_prompt = State()
     waiting_for_ad_text = State()
 
@@ -41,6 +43,15 @@ BRAND_DESCRIPTIONS = {
     "universal": "Подходит для любого бизнеса",
 }
 
+# Описания layout для пользователя
+LAYOUT_DESCRIPTIONS = {
+    "A": "📌 Заголовок сверху · Продукт по центру · CTA снизу",
+    "B": "🔠 Большой заголовок сверху · Продукт снизу · CTA внизу",
+    "C": "↔️ Текст слева · Продукт справа · CTA снизу",
+}
+
+
+# ═══ КЛАВИАТУРЫ ═══
 
 def brand_style_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -51,14 +62,48 @@ def brand_style_keyboard():
     ])
 
 
-def main_keyboard():
+def format_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Ещё 3 варианта", callback_data="regenerate")],
-        [InlineKeyboardButton(text="✏️ Изменить текст", callback_data="change_text"),
-         InlineKeyboardButton(text="🖼 Изменить фото", callback_data="change_photo")],
-        [InlineKeyboardButton(text="🎨 Изменить стиль бренда", callback_data="change_brand")],
+        [InlineKeyboardButton(
+            text="⬛ Квадрат (1:1) — Посты в ленте, Telegram",
+            callback_data="format_square"
+        )],
+        [InlineKeyboardButton(
+            text="📱 Stories (9:16) — Instagram, TikTok, Reels",
+            callback_data="format_stories"
+        )],
     ])
 
+
+def layout_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"Layout A — {LAYOUT_DESCRIPTIONS['A']}",
+            callback_data="layout_A"
+        )],
+        [InlineKeyboardButton(
+            text=f"Layout B — {LAYOUT_DESCRIPTIONS['B']}",
+            callback_data="layout_B"
+        )],
+        [InlineKeyboardButton(
+            text=f"Layout C — {LAYOUT_DESCRIPTIONS['C']}",
+            callback_data="layout_C"
+        )],
+    ])
+
+
+def main_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Ещё варианты", callback_data="regenerate")],
+        [InlineKeyboardButton(text="✏️ Изменить текст", callback_data="change_text"),
+         InlineKeyboardButton(text="🖼 Изменить фото", callback_data="change_photo")],
+        [InlineKeyboardButton(text="📐 Изменить layout", callback_data="change_layout")],
+        [InlineKeyboardButton(text="📏 Изменить формат", callback_data="change_format")],
+        [InlineKeyboardButton(text="🎨 Изменить стиль", callback_data="change_brand")],
+    ])
+
+
+# ═══ ХЭНДЛЕРЫ ═══
 
 @dp.message(F.text == "/start")
 async def cmd_start(message: Message, state: FSMContext):
@@ -77,17 +122,37 @@ async def handle_brand_choice(callback: CallbackQuery, state: FSMContext):
     await state.update_data(brand_style=brand)
     await callback.answer()
     await callback.message.edit_text(
-        f"Стиль: {label}\n\nОтправь:\n📸 <b>Фото</b> товара\nили\n💬 <b>Текст</b> с описанием",
+        f"Стиль: {label} ✅\n\nТеперь выбери формат баннера:",
+        reply_markup=format_keyboard()
+    )
+    await state.set_state(CreativeFlow.choosing_format)
+
+
+@dp.callback_query(F.data.startswith("format_"))
+async def handle_format_choice(callback: CallbackQuery, state: FSMContext):
+    fmt = callback.data.replace("format_", "")  # "square" или "stories"
+    canvas = (1080, 1080) if fmt == "square" else (1080, 1920)
+    await state.update_data(format=fmt, canvas_size=canvas)
+    await callback.answer()
+    await callback.message.edit_text(
+        f"Формат: {'⬛ Квадрат 1:1' if fmt == 'square' else '📱 Stories 9:16'} ✅\n\n"
+        f"Выбери расположение элементов:",
+        reply_markup=layout_keyboard()
+    )
+    await state.set_state(CreativeFlow.choosing_layout)
+
+
+@dp.callback_query(F.data.startswith("layout_"))
+async def handle_layout_choice(callback: CallbackQuery, state: FSMContext):
+    layout = callback.data.replace("layout_", "")  # "A", "B", "C"
+    await state.update_data(layout=layout)
+    await callback.answer()
+    await callback.message.edit_text(
+        f"Layout {layout} ✅ — {LAYOUT_DESCRIPTIONS[layout]}\n\n"
+        f"Отправь:\n📸 <b>Фото</b> товара\nили\n💬 <b>Текст</b> с описанием",
         parse_mode="HTML"
     )
     await state.set_state(CreativeFlow.waiting_for_photo_or_prompt)
-
-
-@dp.callback_query(F.data == "change_brand")
-async def change_brand(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await callback.message.answer("Выбери новый стиль:", reply_markup=brand_style_keyboard())
-    await state.set_state(CreativeFlow.choosing_brand_style)
 
 
 @dp.message(CreativeFlow.waiting_for_photo_or_prompt, F.photo)
@@ -97,30 +162,8 @@ async def handle_photo(message: Message, state: FSMContext):
     os.makedirs("/tmp/creative_temp", exist_ok=True)
     image_path = f"/tmp/creative_temp/{message.from_user.id}_source.jpg"
     await bot.download_file(file.file_path, image_path)
-    await state.update_data(image_path=image_path, replace_bg=False)
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🎨 Заменить фон через AI",
-            callback_data="bg_replace"
-        )],
-        [InlineKeyboardButton(
-            text="📸 Оставить моё фото как есть",
-            callback_data="bg_keep"
-        )],
-    ])
-    await message.answer("✅ Фото получил!\n\nЧто делаем с фоном?", reply_markup=kb)
-
-
-@dp.callback_query(F.data.in_({"bg_replace", "bg_keep"}))
-async def handle_bg_choice(callback: CallbackQuery, state: FSMContext):
-    replace_bg = callback.data == "bg_replace"
-    await state.update_data(replace_bg=replace_bg)
-    await callback.answer()
-    label = "🎨 Фон заменим через AI" if replace_bg else "📸 Фото оставим как есть"
-    await callback.message.edit_text(
-        f"{label}\n\nТеперь напиши рекламный текст — что продаём, цена, акции:"
-    )
+    await state.update_data(image_path=image_path)
+    await message.answer("✅ Фото получил!\n\nНапиши рекламный текст — что продаём, цена, акции:")
     await state.set_state(CreativeFlow.waiting_for_ad_text)
 
 
@@ -137,19 +180,24 @@ async def handle_ad_text(message: Message, state: FSMContext):
     existing = data.get("ad_text", "")
     ad_text = existing + "\n" + message.text if existing else message.text
     await state.update_data(ad_text=ad_text)
-    await _generate_and_send(message, state, data.get("image_path"), ad_text)
+    await _generate_and_send(message, state)
 
 
-async def _generate_and_send(message: Message, state: FSMContext,
-                              image_path: str, ad_text: str):
-    status = await message.answer("⚡ Начинаю генерацию — первый баннер придёт через ~30 сек...")
+async def _generate_and_send(message: Message, state: FSMContext):
+    data = await state.get_data()
+    image_path = data.get("image_path")
+    ad_text = data.get("ad_text", "")
+    brand_style = data.get("brand_style", "universal")
+    layout = data.get("layout", "A")
+    canvas_size = data.get("canvas_size", (1080, 1080))
+
+    fmt_label = "⬛ Квадрат" if canvas_size == (1080, 1080) else "📱 Stories"
+    status = await message.answer(
+        f"⚡ Генерирую... {fmt_label} · Layout {layout}\n~30 сек, жди!"
+    )
 
     try:
-        data = await state.get_data()
-        brand_style = data.get("brand_style", "universal")
-        replace_bg = data.get("replace_bg", False)
-
-        plan = await build_creative_plan(ad_text, image_path)
+        plan = await build_creative_plan(ad_text, image_path, layout=layout)
         plan.brand_style = brand_style
         await state.update_data(plan=plan.__dict__)
 
@@ -166,7 +214,6 @@ async def _generate_and_send(message: Message, state: FSMContext,
                 file_obj = BufferedInputFile(photo_data, filename="banner.png")
                 await message.answer_photo(file_obj, caption=label)
                 sent_count += 1
-                # Удаляем статус после первого баннера
                 if sent_count == 1:
                     try:
                         await status.delete()
@@ -179,15 +226,16 @@ async def _generate_and_send(message: Message, state: FSMContext,
             plan, image_path, output_dir,
             ad_text=ad_text,
             send_callback=send_banner,
-            replace_bg=replace_bg
+            layout=layout,
+            canvas_size=canvas_size,
         )
 
         if sent_count == 0:
-            await status.edit_text("⚠️ Не удалось создать баннеры. Попробуй ещё раз.")
+            await status.edit_text("⚠️ Не удалось создать баннер. Попробуй ещё раз.")
             return
 
         await message.answer(
-            f"Готово! Отправил {sent_count} варианта 👆",
+            f"Готово! 🎉\nФормат: {fmt_label} · Layout {layout}",
             reply_markup=main_keyboard()
         )
 
@@ -199,14 +247,12 @@ async def _generate_and_send(message: Message, state: FSMContext,
             await message.answer(f"❌ Ошибка: {e}")
 
 
+# ═══ КНОПКИ ИЗМЕНЕНИЯ ═══
+
 @dp.callback_query(F.data == "regenerate")
 async def regenerate(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
     await callback.answer()
-    await _generate_and_send(
-        callback.message, state,
-        data.get("image_path"), data.get("ad_text", "")
-    )
+    await _generate_and_send(callback.message, state)
 
 
 @dp.callback_query(F.data == "change_text")
@@ -221,6 +267,36 @@ async def change_photo(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.answer("🖼 Отправь новое фото:")
     await state.set_state(CreativeFlow.waiting_for_photo_or_prompt)
+
+
+@dp.callback_query(F.data == "change_layout")
+async def change_layout(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await callback.message.answer(
+        "📐 Выбери новое расположение элементов:",
+        reply_markup=layout_keyboard()
+    )
+    await state.set_state(CreativeFlow.choosing_layout)
+
+
+@dp.callback_query(F.data == "change_format")
+async def change_format(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await callback.message.answer(
+        "📏 Выбери формат:",
+        reply_markup=format_keyboard()
+    )
+    await state.set_state(CreativeFlow.choosing_format)
+
+
+@dp.callback_query(F.data == "change_brand")
+async def change_brand(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await callback.message.answer(
+        "🎨 Выбери новый стиль бренда:",
+        reply_markup=brand_style_keyboard()
+    )
+    await state.set_state(CreativeFlow.choosing_brand_style)
 
 
 @dp.message()
