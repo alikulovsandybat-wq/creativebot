@@ -14,6 +14,10 @@ from services.variant_generator import generate_variants
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ═══ ДОМЕН ═══
+# После того как Railway сгенерирует домен — вставь его сюда
+EDITOR_BASE_URL = os.getenv("EDITOR_URL", "https://YOUR_DOMAIN.up.railway.app")
+
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -92,15 +96,19 @@ def layout_keyboard():
     ])
 
 
-def main_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
+def main_keyboard(editor_url: str = None):
+    buttons = []
+    if editor_url:
+        buttons.append([InlineKeyboardButton(text="✏️ Править вручную", url=editor_url)])
+    buttons += [
         [InlineKeyboardButton(text="🔄 Ещё варианты", callback_data="regenerate")],
         [InlineKeyboardButton(text="✏️ Изменить текст", callback_data="change_text"),
          InlineKeyboardButton(text="🖼 Изменить фото", callback_data="change_photo")],
         [InlineKeyboardButton(text="📐 Изменить layout", callback_data="change_layout")],
         [InlineKeyboardButton(text="📏 Изменить формат", callback_data="change_format")],
         [InlineKeyboardButton(text="🎨 Изменить стиль", callback_data="change_brand")],
-    ])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 # ═══ ХЭНДЛЕРЫ ═══
@@ -234,9 +242,28 @@ async def _generate_and_send(message: Message, state: FSMContext):
             await status.edit_text("⚠️ Не удалось создать баннер. Попробуй ещё раз.")
             return
 
+        # Строим URL редактора
+        editor_url = None
+        try:
+            import urllib.parse
+            params = {
+                "fmt": "square" if canvas_size == (1080, 1080) else "stories",
+                "headline": plan.headline or "",
+                "sub": plan.subheadline or "",
+                "price": plan.price or "",
+                "badge": plan.badge or "",
+                "cta": plan.cta or "",
+                "bullets": "|".join(plan.bullets or []),
+            }
+            query = urllib.parse.urlencode(params)
+            editor_url = f"{EDITOR_BASE_URL}/editor?{query}"
+        except Exception as e:
+            logger.warning(f"Editor URL build failed: {e}")
+
+        fmt_label = "⬛ Квадрат" if canvas_size == (1080, 1080) else "📱 Stories"
         await message.answer(
             f"Готово! 🎉\nФормат: {fmt_label} · Layout {layout}",
-            reply_markup=main_keyboard()
+            reply_markup=main_keyboard(editor_url)
         )
 
     except Exception as e:
